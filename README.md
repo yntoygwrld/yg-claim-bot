@@ -54,4 +54,4 @@ worker: python bot.py
 ## Related
 
 - Website: https://github.com/relaxshadow/yntoyg-website
-- Deployed: https://yntoyg-website.vercel.app
+- Deployed: https://yntoyg.com
