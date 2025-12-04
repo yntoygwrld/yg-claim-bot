@@ -22,6 +22,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ============ GROUP MEMBERSHIP CHECK ============
+
+async def check_covenant_membership(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Check if user is a member of the $YNTOYG Covenant private group."""
+    try:
+        member = await context.bot.get_chat_member(
+            config.YNTOYG_COVENANT_GROUP_ID,
+            user_id
+        )
+        # Check if member status indicates they're in the group
+        return member.status in ["member", "administrator", "creator"]
+    except Exception as e:
+        logger.warning(f"Could not check membership for user {user_id}: {e}")
+        return False
+
+
 # ============ ADMIN DECORATOR ============
 
 def admin_only(func):
@@ -43,6 +59,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     args = context.args
 
+    # STEP 1: Check if user is in the $YNTOYG Covenant (private group)
+    is_covenant_member = await check_covenant_membership(user.id, context)
+    if not is_covenant_member:
+        await update.message.reply_text(
+            "🎩 Welcome, aspiring Gentleman!\n\n"
+            "To begin your YG transformation, you must first join the Covenant.\n\n"
+            f"👉 Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
+            "Complete the verification process, then return and try /start again.\n\n"
+            "The journey from YN to YG awaits!"
+        )
+        return
+
+    # User is in the Covenant - continue with onboarding
     # Check if user already exists
     existing_user = await db.get_user_by_telegram_id(user.id)
 
