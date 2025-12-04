@@ -163,3 +163,87 @@ async def get_weekly_leaderboard(limit: int = 10) -> List[Dict]:
         "*, users(telegram_id)"
     ).order("total_views", desc=True).limit(limit).execute()
     return result.data
+
+
+# ============ BOT SETTINGS OPERATIONS ============
+
+# In-memory cache for settings (reduces DB calls)
+_settings_cache: Dict[str, Any] = {}
+_cache_timestamp: float = 0
+CACHE_TTL_SECONDS = 60  # Refresh cache every minute
+
+
+async def get_bot_settings() -> Dict[str, Any]:
+    """Get current bot settings from database (with caching)"""
+    import time
+    global _settings_cache, _cache_timestamp
+
+    # Return cached if still valid
+    if _settings_cache and (time.time() - _cache_timestamp) < CACHE_TTL_SECONDS:
+        return _settings_cache
+
+    try:
+        result = supabase.table("bot_settings").select("*").eq("id", 1).execute()
+
+        if result.data:
+            _settings_cache = result.data[0]
+            _cache_timestamp = time.time()
+            return _settings_cache
+        else:
+            # Create default settings if none exist
+            result = supabase.table("bot_settings").insert({
+                "id": 1,
+                **config.DEFAULT_BOT_SETTINGS
+            }).execute()
+            _settings_cache = result.data[0]
+            _cache_timestamp = time.time()
+            return _settings_cache
+    except Exception as e:
+        # Return defaults on error
+        return config.DEFAULT_BOT_SETTINGS
+
+
+async def update_bot_setting(key: str, value: Any) -> Dict[str, Any]:
+    """Update a single bot setting"""
+    global _settings_cache, _cache_timestamp
+
+    result = supabase.table("bot_settings").update({
+        key: value,
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("id", 1).execute()
+
+    # Invalidate cache
+    _cache_timestamp = 0
+
+    return result.data[0] if result.data else {}
+
+
+async def update_bot_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
+    """Update multiple bot settings at once"""
+    global _settings_cache, _cache_timestamp
+
+    settings["updated_at"] = datetime.utcnow().isoformat()
+    result = supabase.table("bot_settings").update(settings).eq("id", 1).execute()
+
+    # Invalidate cache
+    _cache_timestamp = 0
+
+    return result.data[0] if result.data else {}
+
+
+async def is_claims_enabled() -> bool:
+    """Quick check if claims are enabled"""
+    settings = await get_bot_settings()
+    return settings.get("claims_enabled", True)
+
+
+async def is_maintenance_mode() -> bool:
+    """Quick check if maintenance mode is on"""
+    settings = await get_bot_settings()
+    return settings.get("maintenance_mode", False)
+
+
+async def get_maintenance_message() -> str:
+    """Get current maintenance message"""
+    settings = await get_bot_settings()
+    return settings.get("maintenance_message", "Bot is under maintenance.")

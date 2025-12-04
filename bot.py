@@ -1,6 +1,7 @@
 """YG Video Claim Bot - Telegram bot for $YNTOYG viral content distribution"""
 import logging
 import re
+from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -19,6 +20,20 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+# ============ ADMIN DECORATOR ============
+
+def admin_only(func):
+    """Decorator to restrict commands to admin users"""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.effective_user.id
+        if user_id not in config.ADMIN_USER_IDS:
+            await update.message.reply_text("❌ This command is admin-only.")
+            return
+        return await func(update, context, *args, **kwargs)
+    return wrapper
 
 
 # ============ COMMAND HANDLERS ============
@@ -149,6 +164,20 @@ async def connect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /claim command to get daily video"""
     user = update.effective_user
+
+    # Check maintenance mode first
+    if await db.is_maintenance_mode():
+        message = await db.get_maintenance_message()
+        await update.message.reply_text(message)
+        return
+
+    # Check if claims are enabled
+    if not await db.is_claims_enabled():
+        await update.message.reply_text(
+            "⏸️ Video claims are temporarily paused.\n\n"
+            "Please check back later or follow our Telegram channel for updates!"
+        )
+        return
 
     # Check if user exists
     db_user = await db.get_user_by_telegram_id(user.id)
@@ -319,6 +348,169 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+# ============ ADMIN COMMANDS ============
+
+@admin_only
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show admin dashboard"""
+    settings = await db.get_bot_settings()
+
+    status_emoji = "✅" if settings.get("claims_enabled") else "⏸️"
+    maint_emoji = "🔧" if settings.get("maintenance_mode") else "✅"
+
+    await update.message.reply_text(
+        f"⚙️ Admin Dashboard\n\n"
+        f"📊 Current Settings:\n"
+        f"• Claims: {status_emoji} {'Enabled' if settings.get('claims_enabled') else 'Paused'}\n"
+        f"• Max Claims/Day: {settings.get('max_claims_per_day', 1)}\n"
+        f"• Maintenance: {maint_emoji} {'ON' if settings.get('maintenance_mode') else 'OFF'}\n"
+        f"• Announcement: {settings.get('announcement') or '(none)'}\n\n"
+        f"📋 Admin Commands:\n"
+        f"/admin - Show this dashboard\n"
+        f"/admin_pause - Pause video claims\n"
+        f"/admin_resume - Resume video claims\n"
+        f"/admin_maintenance <on|off> [message] - Toggle maintenance\n"
+        f"/admin_announce <message> - Set announcement\n"
+        f"/admin_limits <number> - Set max claims per day\n"
+        f"/admin_stats - Show bot statistics"
+    )
+
+
+@admin_only
+async def admin_pause(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Pause video claims"""
+    await db.update_bot_setting("claims_enabled", False)
+    logger.info(f"Claims PAUSED by admin {update.effective_user.id}")
+    await update.message.reply_text(
+        "⏸️ Video claims have been PAUSED.\n\n"
+        "Users will see a 'claims paused' message.\n"
+        "Use /admin_resume to enable claims again."
+    )
+
+
+@admin_only
+async def admin_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Resume video claims"""
+    await db.update_bot_setting("claims_enabled", True)
+    logger.info(f"Claims RESUMED by admin {update.effective_user.id}")
+    await update.message.reply_text(
+        "✅ Video claims have been RESUMED.\n\n"
+        "Users can now claim videos again."
+    )
+
+
+@admin_only
+async def admin_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Toggle maintenance mode"""
+    args = context.args
+
+    if not args:
+        await update.message.reply_text(
+            "Usage: /admin_maintenance <on|off> [custom message]\n\n"
+            "Examples:\n"
+            "/admin_maintenance on\n"
+            "/admin_maintenance on Updating videos, back in 30 min!\n"
+            "/admin_maintenance off"
+        )
+        return
+
+    mode = args[0].lower()
+    if mode == "on":
+        custom_message = " ".join(args[1:]) if len(args) > 1 else None
+        updates = {"maintenance_mode": True}
+        if custom_message:
+            updates["maintenance_message"] = f"🔧 {custom_message}"
+        await db.update_bot_settings(updates)
+        logger.info(f"Maintenance mode ON by admin {update.effective_user.id}")
+        await update.message.reply_text(
+            "🔧 Maintenance mode is now ON.\n\n"
+            "All user commands will show the maintenance message.\n"
+            "Use /admin_maintenance off when done."
+        )
+    elif mode == "off":
+        await db.update_bot_setting("maintenance_mode", False)
+        logger.info(f"Maintenance mode OFF by admin {update.effective_user.id}")
+        await update.message.reply_text(
+            "✅ Maintenance mode is now OFF.\n\n"
+            "Bot is back to normal operation."
+        )
+    else:
+        await update.message.reply_text("Invalid option. Use 'on' or 'off'.")
+
+
+@admin_only
+async def admin_announce(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Set or clear announcement"""
+    args = context.args
+
+    if not args:
+        await db.update_bot_setting("announcement", "")
+        await update.message.reply_text("✅ Announcement cleared.")
+        return
+
+    announcement = " ".join(args)
+    await db.update_bot_setting("announcement", announcement)
+    logger.info(f"Announcement set by admin {update.effective_user.id}: {announcement}")
+    await update.message.reply_text(
+        f"📢 Announcement set:\n\n{announcement}"
+    )
+
+
+@admin_only
+async def admin_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Adjust claim limits"""
+    args = context.args
+
+    if not args or not args[0].isdigit():
+        await update.message.reply_text(
+            "Usage: /admin_limits <number>\n\n"
+            "Example: /admin_limits 2 (allows 2 claims per day)\n"
+            "Use 0 to effectively disable claims."
+        )
+        return
+
+    new_limit = int(args[0])
+    await db.update_bot_setting("max_claims_per_day", new_limit)
+    logger.info(f"Max claims set to {new_limit} by admin {update.effective_user.id}")
+
+    if new_limit == 0:
+        await update.message.reply_text(
+            "⚠️ Max claims set to 0 - this effectively disables claims.\n"
+            "Users cannot claim any videos."
+        )
+    else:
+        await update.message.reply_text(
+            f"✅ Max claims per day set to: {new_limit}\n\n"
+            f"Users can now claim up to {new_limit} video(s) daily."
+        )
+
+
+@admin_only
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show bot statistics"""
+    # Get some basic stats from database
+    try:
+        users_result = db.supabase.table("users").select("id", count="exact").execute()
+        videos_result = db.supabase.table("videos").select("id", count="exact").eq("is_active", True).execute()
+        claims_today = db.supabase.table("daily_claims").select("id", count="exact").eq(
+            "claim_date", db.date.today().isoformat()
+        ).execute()
+
+        user_count = users_result.count or 0
+        video_count = videos_result.count or 0
+        claims_count = claims_today.count or 0
+
+        await update.message.reply_text(
+            f"📊 Bot Statistics\n\n"
+            f"👥 Total Users: {user_count:,}\n"
+            f"🎬 Active Videos: {video_count}\n"
+            f"📹 Claims Today: {claims_count:,}\n"
+        )
+    except Exception as e:
+        logger.error(f"Error getting stats: {e}")
+        await update.message.reply_text("Error fetching statistics. Check logs.")
+
+
 # ============ CALLBACK HANDLERS ============
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -367,6 +559,15 @@ def main() -> None:
     application.add_handler(CommandHandler("mystats", mystats))
     application.add_handler(CommandHandler("leaderboard", leaderboard))
     application.add_handler(CommandHandler("help", help_command))
+
+    # Add admin command handlers
+    application.add_handler(CommandHandler("admin", admin))
+    application.add_handler(CommandHandler("admin_pause", admin_pause))
+    application.add_handler(CommandHandler("admin_resume", admin_resume))
+    application.add_handler(CommandHandler("admin_maintenance", admin_maintenance))
+    application.add_handler(CommandHandler("admin_announce", admin_announce))
+    application.add_handler(CommandHandler("admin_limits", admin_limits))
+    application.add_handler(CommandHandler("admin_stats", admin_stats))
 
     # Add callback handler for inline keyboards
     application.add_handler(CallbackQueryHandler(button_callback))

@@ -11,7 +11,13 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Bot Settings
+# Admin Configuration
+# Add your Telegram user ID(s) here - get yours by messaging @userinfobot
+ADMIN_USER_IDS = [
+    int(uid.strip()) for uid in os.getenv("ADMIN_USER_IDS", "").split(",") if uid.strip()
+]
+
+# Bot Settings (defaults - can be overridden via database)
 CLAIM_COOLDOWN_HOURS = 24
 TOKEN_EXPIRY_HOURS = 24
 MAX_REPOSTS_PER_DAY = 10
@@ -28,4 +34,13 @@ URL_PATTERNS = {
     "tiktok": r"tiktok\.com/@[\w\.]+/video/\d+",
     "instagram": r"instagram\.com/(p|reel)/[\w-]+",
     "twitter": r"(twitter|x)\.com/\w+/status/\d+",
+}
+
+# Default bot settings (stored in database for runtime changes)
+DEFAULT_BOT_SETTINGS = {
+    "claims_enabled": True,
+    "max_claims_per_day": 1,
+    "maintenance_mode": False,
+    "maintenance_message": "🔧 Bot is under maintenance. Please check back soon!",
+    "announcement": "",  # Optional announcement shown to all users
 }
