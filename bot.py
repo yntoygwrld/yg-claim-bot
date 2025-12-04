@@ -1,4 +1,4 @@
-"""YG Claim Bot - Telegram bot for viral content distribution"""
+"""YG Video Claim Bot - Telegram bot for $YNTOYG viral content distribution"""
 import logging
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -51,7 +51,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Create user with linked email
             await db.create_user(email, user.id)
             await update.message.reply_text(
-                f"🎩 Welcome to YG Season, Gentleman!\n\n"
+                f"🎩 Welcome to $YNTOYG, Gentleman!\n\n"
                 f"Your email ({email}) is now linked.\n\n"
                 f"Next steps:\n"
                 f"1. /wallet <address> - Connect your Solana wallet\n"
@@ -62,13 +62,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             await update.message.reply_text(
                 "❌ Invalid or expired magic link.\n\n"
-                "Please get a new link from https://yntoyg-website.vercel.app"
+                "Please get a new link from https://yntoyg.com"
             )
     else:
         await update.message.reply_text(
-            "🎩 Welcome to YG Season!\n\n"
+            "🎩 Welcome to $YNTOYG!\n\n"
             "To get started, please sign up at:\n"
-            "https://yntoyg-website.vercel.app\n\n"
+            "https://yntoyg.com\n\n"
             "You'll receive a magic link to connect your account."
         )
 
@@ -303,7 +303,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /help command"""
     await update.message.reply_text(
-        "🎩 YG Season - How It Works\n\n"
+        "🎩 $YNTOYG - How It Works\n\n"
         "1️⃣ /start - Begin your journey\n"
         "2️⃣ /wallet <addr> - Connect Solana wallet\n"
         "3️⃣ /connect - Link social accounts\n"
@@ -314,7 +314,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "📊 /mystats - View your progress\n"
         "🏆 /leaderboard - See top performers\n\n"
         "The more views you generate, the higher your Gentleman Score!\n\n"
-        "Questions? Join our community: https://t.me/theygseason"
+        "Learn more: https://yntoyg.com\n"
+        "Community: https://t.me/yntoyg"
     )
 
 
@@ -374,7 +375,7 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Start polling
-    logger.info("Starting YG Claim Bot...")
+    logger.info("Starting YG Video Claim Bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
