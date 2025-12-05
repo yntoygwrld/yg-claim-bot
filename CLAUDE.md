@@ -80,3 +80,51 @@ Procfile                        # Koyeb worker config
 - supabase==2.10.0
 - aiohttp==3.9.3
 - python-dotenv==1.0.0
+
+---
+
+## 🚨 MANDATORY: Git Commit & Push Protocol
+
+**CRITICAL: After ANY code changes, you MUST commit and push immediately.**
+
+### Why This Matters
+- Koyeb auto-deploys from GitHub on push to `main`
+- Local changes DO NOTHING until pushed
+- The bot runs on Koyeb, NOT locally
+- User expects to see changes live immediately
+
+### After Every Code Change:
+```bash
+git add -A
+git commit -m "descriptive message"
+git push origin main
+```
+
+### DO NOT:
+- ❌ Leave changes uncommitted
+- ❌ Wait for user to ask you to push
+- ❌ Assume local changes affect the live bot
+- ❌ Forget to push after editing files
+
+### DO:
+- ✅ Commit immediately after making changes
+- ✅ Push to trigger Koyeb auto-deploy
+- ✅ Write clear commit messages
+- ✅ Verify push succeeded before moving on
+
+### Verification After Push:
+1. Check git status shows clean working tree
+2. Wait ~30 seconds for Koyeb to detect changes
+3. Check Koyeb dashboard for new deployment
+4. Verify deployment is healthy
+
+### Commit Message Format:
+```
+feat: Add new feature
+fix: Fix bug in X
+update: Update configuration
+refactor: Refactor code structure
+docs: Update documentation
+```
+
+**REMEMBER: Changes only go live after `git push origin main`!**
