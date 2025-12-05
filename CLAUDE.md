@@ -54,12 +54,16 @@ ADMIN_USER_IDS=8227072324
 | Command | Description |
 |---------|-------------|
 | `/admin` | Dashboard with all settings |
-| `/addvideo` | Add video to pool (send as document) |
+| `/addvideo` | Add single video to pool |
+| `/bulkupload` | Start bulk upload mode (send multiple videos) |
+| `/done` | End bulk upload mode |
 | `/listvideosadmin` | List all videos |
 | `/video_enable <id>` | Enable video |
 | `/video_disable <id>` | Disable video |
+| `/video_delete <id>` | Delete video |
 | `/admin_pause` | Pause claims |
 | `/admin_resume` | Resume claims |
+| `/dev` | Test video download (no claim increment) |
 
 ### User Commands
 | Command | Description |
@@ -117,8 +121,26 @@ Procfile                        # Koyeb worker config
 git add -A
 git commit -m "descriptive message"
 git push origin main
-# THEN go to Koyeb and click Redeploy!
 ```
+
+### 🤖 AUTOMATED KOYEB REDEPLOY (Use Playwright!)
+After pushing code, use Playwright MCP to trigger redeploy:
+
+1. **Navigate to Koyeb** (if not already open):
+   - Use `browser_tabs` to select Koyeb tab, or
+   - Use `browser_navigate` to `https://app.koyeb.com/services`
+
+2. **Click on yg-claim-bot service** (sticky-lavinia)
+
+3. **Click "Redeploy" button**
+
+4. **In dialog, click "Trigger build"** (NOT "Skip build")
+
+5. **Wait ~60 seconds** for deployment
+
+6. **Verify status shows "Healthy"**
+
+This is MANDATORY after every push - do NOT ask user to do it manually!
 
 ### DO NOT:
 - ❌ Leave changes uncommitted
