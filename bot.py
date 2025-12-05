@@ -125,12 +125,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Clean up any pending record
             await db.delete_pending_onboarding(user.id)
 
+            # Generate dashboard auth token for instant website access
+            dashboard_token = await db.generate_dashboard_token(email)
+            dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
+
             await update.message.reply_text(
                 f"Welcome to the Covenant.\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"ACCOUNT ACTIVATED\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"Your email ({email}) is now linked.\n\n"
+                f"VIEW YOUR DASHBOARD\n"
+                f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
                 f"▸ /claim - Get your daily video (+10 points)\n"
                 f"▸ /submit <url> - Submit your repost (+25 points)\n"
@@ -171,12 +177,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await db.consume_magic_token(original_token)
             await db.delete_pending_onboarding(user.id)
 
+            # Generate dashboard auth token for instant website access
+            dashboard_token = await db.generate_dashboard_token(email)
+            dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
+
             await update.message.reply_text(
                 f"Welcome to the Covenant.\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"ACCOUNT ACTIVATED\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"Your email ({email}) is now linked.\n\n"
+                f"VIEW YOUR DASHBOARD\n"
+                f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
                 f"▸ /claim - Get your daily video (+10 points)\n"
                 f"▸ /submit <url> - Submit your repost (+25 points)\n"

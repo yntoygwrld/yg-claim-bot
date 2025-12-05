@@ -383,3 +383,27 @@ async def consume_magic_token(token: str) -> bool:
     """Mark a magic token as used after successful onboarding"""
     result = supabase.table("email_tokens").update({"used": True}).eq("token", token).execute()
     return len(result.data) > 0 if result.data else False
+
+
+# ============ DASHBOARD AUTH TOKEN OPERATIONS ============
+
+async def generate_dashboard_token(email: str) -> str:
+    """Generate a dashboard login token for immediate website access.
+    This creates a 'dashboard_login' type token that the website can verify."""
+    import secrets
+
+    token = secrets.token_hex(32)
+    expires_at = datetime.utcnow().replace(tzinfo=None)
+    # Token expires in 7 days (same as session)
+    from datetime import timedelta
+    expires_at = (expires_at + timedelta(days=7)).isoformat() + "Z"
+
+    supabase.table("email_tokens").insert({
+        "email": email,
+        "token": token,
+        "type": "dashboard_login",
+        "used": False,
+        "expires_at": expires_at,
+    }).execute()
+
+    return token
