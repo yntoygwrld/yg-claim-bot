@@ -744,6 +744,77 @@ async def video_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text("❌ Video not found")
 
 
+@admin_only
+async def dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Dev command to test video download without incrementing claim counter"""
+    user = update.effective_user
+
+    # Get random video
+    video = await db.get_random_active_video()
+    if not video:
+        await update.message.reply_text("❌ No videos available in pool.")
+        return
+
+    await update.message.reply_text(
+        f"🧪 DEV TEST - Downloading video...\n\n"
+        f"📹 {video.get('title', 'Untitled')}\n"
+        f"🆔 {video.get('id', '')[:8]}...\n\n"
+        f"⚠️ Claim counter NOT incremented"
+    )
+
+    # Prepare video - prioritize telegram_file_id
+    file_id = video.get("telegram_file_id")
+
+    if file_id:
+        try:
+            # Download video from Telegram
+            file = await context.bot.get_file(file_id)
+            temp_dir = Path(tempfile.gettempdir()) / "yg_claim_temp"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            import uuid
+            temp_path = temp_dir / f"dev_{uuid.uuid4().hex[:8]}.mp4"
+            await file.download_to_drive(str(temp_path))
+
+            # Uniquify the video
+            success, result_path, metadata = await serve_unique_video(str(temp_path))
+
+            if success and Path(result_path).exists():
+                random_name = generate_random_filename()
+                # Send uniquified video with random filename
+                with open(result_path, 'rb') as f:
+                    await update.message.reply_document(
+                        document=f,
+                        filename=random_name,
+                        caption=f"🧪 DEV TEST\n\n"
+                                f"📁 Filename: {random_name}\n"
+                                f"🔑 Unique ID: {metadata.get('unique_id', 'N/A')}\n"
+                                f"⏱️ Timestamp: {metadata.get('timestamp', 'N/A')}"
+                    )
+
+                # Cleanup
+                uniquifier = get_uniquifier()
+                await uniquifier.cleanup(result_path)
+                if temp_path.exists():
+                    temp_path.unlink()
+
+                logger.info(f"DEV: Served test video to admin {user.id}, metadata: {metadata.get('unique_id', 'N/A')}")
+            else:
+                # Fallback: send original file
+                await update.message.reply_document(
+                    document=file_id,
+                    caption="🧪 DEV TEST - Uniquification failed, sent original"
+                )
+                if temp_path.exists():
+                    temp_path.unlink()
+
+        except Exception as e:
+            logger.error(f"DEV: Error serving video: {e}")
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    else:
+        await update.message.reply_text("❌ Video has no telegram_file_id")
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Cancel current operation"""
     context.user_data.pop("awaiting_video_upload", None)
@@ -875,6 +946,7 @@ def main() -> None:
     application.add_handler(CommandHandler("video_enable", video_enable))
     application.add_handler(CommandHandler("video_disable", video_disable))
     application.add_handler(CommandHandler("video_delete", video_delete))
+    application.add_handler(CommandHandler("dev", dev))
     application.add_handler(CommandHandler("cancel", cancel))
 
     # Add callback handler for inline keyboards
