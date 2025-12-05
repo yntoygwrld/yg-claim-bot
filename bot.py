@@ -1,5 +1,6 @@
 """YG Video Claim Bot - Telegram bot for $YNTOYG viral content distribution"""
 import logging
+import random
 import re
 import tempfile
 from pathlib import Path
@@ -23,6 +24,14 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def generate_random_filename() -> str:
+    """Generate a random video filename for uniqueness"""
+    prefixes = ["video", "vid", "clip", "content", "media", "VID", "MOV"]
+    prefix = random.choice(prefixes)
+    number = random.randint(10000000, 99999999)
+    return f"{prefix}{number}.mp4"
 
 
 # ============ GROUP MEMBERSHIP CHECK ============
@@ -271,11 +280,11 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             success, result_path, metadata = await serve_unique_video(str(temp_path))
 
             if success and Path(result_path).exists():
-                # Send uniquified video
+                # Send uniquified video with random filename
                 with open(result_path, 'rb') as f:
                     await update.message.reply_document(
                         document=f,
-                        filename="yg_content.mp4",
+                        filename=generate_random_filename(),
                         caption="Post this and submit your link with /submit"
                     )
 
@@ -313,7 +322,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 with open(result_path, 'rb') as f:
                     await update.message.reply_document(
                         document=f,
-                        filename="yg_content.mp4",
+                        filename=generate_random_filename(),
                         caption="Post this and submit your link with /submit"
                     )
                 uniquifier = get_uniquifier()
