@@ -664,7 +664,7 @@ async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
 
-    text = "📹 Video Pool\n\n"
+    text = "📹 <b>Video Pool</b>\n\n"
     for i, video in enumerate(videos, 1):
         status = "✅" if video.get("is_active") else "⏸️"
         title = video.get("title", "Untitled")
@@ -674,14 +674,14 @@ async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         text += f"{i}. {status} {has_file_id} {title}\n"
         text += f"   Claims: {claims}\n"
-        text += f"   ID: `{vid_id}`\n\n"
+        text += f"   ID: <code>{vid_id}</code>\n\n"
 
-    text += "Commands:\n"
-    text += "/video_enable <id> - Enable video\n"
-    text += "/video_disable <id> - Disable video\n"
-    text += "/video_delete <id> - Delete video"
+    text += "<b>Commands:</b>\n"
+    text += "/video_enable &lt;id&gt; - Enable video\n"
+    text += "/video_disable &lt;id&gt; - Disable video\n"
+    text += "/video_delete &lt;id&gt; - Delete video"
 
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(text, parse_mode="HTML")
 
 
 @admin_only
