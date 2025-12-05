@@ -498,7 +498,8 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"/admin_limits <number> - Set max claims per day\n"
         f"/admin_stats - Show bot statistics\n\n"
         f"📹 Video Management:\n"
-        f"/addvideo - Add video to pool\n"
+        f"/addvideo - Add single video\n"
+        f"/bulkupload - Add multiple videos (then /done)\n"
         f"/listvideosadmin - List all videos"
     )
 
@@ -642,12 +643,32 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def addvideo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Start add video flow - admin sends this command then forwards a video"""
     context.user_data["awaiting_video_upload"] = True
+    context.user_data["bulk_upload_mode"] = False
+    context.user_data["bulk_upload_count"] = 0
     await update.message.reply_text(
         "🎬 Add Video to Pool\n\n"
         "Now send me the video file as a DOCUMENT (not as video).\n"
         "This preserves original quality.\n\n"
         "To send as document:\n"
         "📎 Attach → File → Select video → Send\n\n"
+        "💡 For multiple videos, use /bulkupload instead\n\n"
+        "Cancel with /cancel"
+    )
+
+
+@admin_only
+async def bulkupload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Start bulk video upload mode - keep uploading until /done"""
+    context.user_data["awaiting_video_upload"] = True
+    context.user_data["bulk_upload_mode"] = True
+    context.user_data["bulk_upload_count"] = 0
+    await update.message.reply_text(
+        "📦 BULK UPLOAD MODE\n\n"
+        "Send multiple videos as DOCUMENTS.\n"
+        "I'll add each one to the pool.\n\n"
+        "To send as document:\n"
+        "📎 Attach → File → Select video(s) → Send\n\n"
+        "When done, send /done to finish.\n"
         "Cancel with /cancel"
     )
 
@@ -817,9 +838,50 @@ async def dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Cancel current operation"""
+    # Check if we were in bulk upload mode
+    if context.user_data.get("bulk_upload_mode"):
+        count = context.user_data.get("bulk_upload_count", 0)
+        if count > 0:
+            await update.message.reply_text(
+                f"❌ Bulk upload cancelled.\n\n"
+                f"📊 {count} video(s) were already added before cancel."
+            )
+        else:
+            await update.message.reply_text("❌ Bulk upload cancelled.")
+    else:
+        await update.message.reply_text("Operation cancelled.")
+
     context.user_data.pop("awaiting_video_upload", None)
+    context.user_data.pop("bulk_upload_mode", None)
+    context.user_data.pop("bulk_upload_count", None)
     context.user_data.pop("connecting_platform", None)
-    await update.message.reply_text("Operation cancelled.")
+
+
+@admin_only
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """End bulk upload mode"""
+    if not context.user_data.get("bulk_upload_mode"):
+        await update.message.reply_text("No bulk upload in progress.")
+        return
+
+    count = context.user_data.get("bulk_upload_count", 0)
+
+    # Clear all upload flags
+    context.user_data.pop("awaiting_video_upload", None)
+    context.user_data.pop("bulk_upload_mode", None)
+    context.user_data.pop("bulk_upload_count", None)
+
+    if count == 0:
+        await update.message.reply_text(
+            "📦 Bulk upload ended.\n\n"
+            "No videos were uploaded."
+        )
+    else:
+        await update.message.reply_text(
+            f"📦 Bulk upload complete!\n\n"
+            f"✅ {count} video(s) added to pool\n\n"
+            f"Use /listvideosadmin to see all videos."
+        )
 
 
 # ============ CALLBACK HANDLERS ============
@@ -891,22 +953,36 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         file_id = document.file_id
         title = Path(filename).stem.replace('_', ' ').replace('-', ' ').title()
 
-        # Clear the flag
-        context.user_data.pop("awaiting_video_upload", None)
+        # Check if we're in bulk upload mode
+        is_bulk = context.user_data.get("bulk_upload_mode", False)
 
         try:
             # Add to database
             video = await db.add_video_by_file_id(file_id, title)
             vid_id = video.get("id", "")[:8]
 
-            await update.message.reply_text(
-                f"✅ Video added to pool!\n\n"
-                f"📹 Title: {title}\n"
-                f"🆔 ID: {vid_id}...\n"
-                f"📁 File ID stored\n"
-                f"✅ Status: Active\n\n"
-                f"Use /listvideosadmin to see all videos."
-            )
+            if is_bulk:
+                # Bulk mode: increment counter, show brief confirmation
+                count = context.user_data.get("bulk_upload_count", 0) + 1
+                context.user_data["bulk_upload_count"] = count
+                await update.message.reply_text(
+                    f"✅ #{count} added: {title}\n"
+                    f"Send more or /done to finish"
+                )
+            else:
+                # Single mode: clear flag, show full confirmation
+                context.user_data.pop("awaiting_video_upload", None)
+                context.user_data.pop("bulk_upload_mode", None)
+                context.user_data.pop("bulk_upload_count", None)
+                await update.message.reply_text(
+                    f"✅ Video added to pool!\n\n"
+                    f"📹 Title: {title}\n"
+                    f"🆔 ID: {vid_id}...\n"
+                    f"📁 File ID stored\n"
+                    f"✅ Status: Active\n\n"
+                    f"Use /listvideosadmin to see all videos."
+                )
+
             logger.info(f"Video added by admin {user.id}: {video.get('id')}")
 
         except Exception as e:
@@ -942,11 +1018,13 @@ def main() -> None:
 
     # Add video management handlers
     application.add_handler(CommandHandler("addvideo", addvideo))
+    application.add_handler(CommandHandler("bulkupload", bulkupload))
     application.add_handler(CommandHandler("listvideosadmin", listvideosadmin))
     application.add_handler(CommandHandler("video_enable", video_enable))
     application.add_handler(CommandHandler("video_disable", video_disable))
     application.add_handler(CommandHandler("video_delete", video_delete))
     application.add_handler(CommandHandler("dev", dev))
+    application.add_handler(CommandHandler("done", done))
     application.add_handler(CommandHandler("cancel", cancel))
 
     # Add callback handler for inline keyboards
