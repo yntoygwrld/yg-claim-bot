@@ -665,9 +665,9 @@ async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text += "Commands:\n"
     text += "/video_enable <id> - Enable video\n"
     text += "/video_disable <id> - Disable video\n"
-    text += "/video_delete <id> - Delete video\n"
+    text += "/video_delete <id> - Delete video"
 
-    await update.message.reply_text(text)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 @admin_only

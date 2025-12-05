@@ -3,24 +3,43 @@
 ## Project Overview
 Telegram bot for $YNTOYG viral content distribution. Users claim daily videos, repost on socials, and earn points.
 
+## 🚨 STRICT ACCOUNT RULES - MANDATORY
+
+### GitHub Account
+- **Username:** `yntoygwrld` (NOT relaxshadow!)
+- **Repository:** `yntoygwrld/yg-claim-bot`
+- **Branch:** `main`
+
+### Before Any Git Operations:
+1. Verify `git remote -v` shows `yntoygwrld/yg-claim-bot`
+2. If wrong, fix with: `git remote set-url origin https://github.com/yntoygwrld/yg-claim-bot.git`
+
 ## Deployment
 
 ### Platform: Koyeb
 - **Service URL**: Deployed on Koyeb (serverless)
+- **Service Name**: `yg-claim-bot` (sticky-lavinia)
 - **GitHub Repo**: `yntoygwrld/yg-claim-bot`
 - **Procfile**: `worker: python bot.py`
+
+### ⚠️ IMPORTANT: Manual Redeploy Required
+Koyeb is configured with "Public repository" mode, which does NOT auto-deploy.
+After pushing code, you MUST manually trigger a redeploy on Koyeb.
 
 ### Environment Variables (Set in Koyeb Dashboard)
 ```
 TELEGRAM_BOT_TOKEN=<from BotFather>
 SUPABASE_URL=https://jdaderasjnuuahzebonq.supabase.co
 SUPABASE_KEY=<service role key>
+ADMIN_USER_IDS=8227072324
 ```
 
 ### Deployment Flow
 1. Push code to `main` branch on GitHub
-2. Koyeb auto-deploys from GitHub
-3. If token needs update, go to Koyeb dashboard → Service → Environment Variables
+2. Go to Koyeb dashboard → Services → yg-claim-bot
+3. Click "Redeploy" button → "Trigger build"
+4. Wait for deployment to become "Healthy"
+5. If token needs update, go to Koyeb dashboard → Service → Settings → Environment Variables
 
 ### To Get New Bot Token
 1. Open Telegram → @BotFather
@@ -88,16 +107,17 @@ Procfile                        # Koyeb worker config
 **CRITICAL: After ANY code changes, you MUST commit and push immediately.**
 
 ### Why This Matters
-- Koyeb auto-deploys from GitHub on push to `main`
-- Local changes DO NOTHING until pushed
+- Local changes DO NOTHING until pushed AND redeployed
 - The bot runs on Koyeb, NOT locally
 - User expects to see changes live immediately
+- Koyeb uses "Public repository" mode - NO auto-deploy!
 
 ### After Every Code Change:
 ```bash
 git add -A
 git commit -m "descriptive message"
 git push origin main
+# THEN go to Koyeb and click Redeploy!
 ```
 
 ### DO NOT:
@@ -108,15 +128,17 @@ git push origin main
 
 ### DO:
 - ✅ Commit immediately after making changes
-- ✅ Push to trigger Koyeb auto-deploy
+- ✅ Push to GitHub (`yntoygwrld/yg-claim-bot`)
 - ✅ Write clear commit messages
-- ✅ Verify push succeeded before moving on
+- ✅ Go to Koyeb and click "Redeploy" → "Trigger build"
+- ✅ Verify deployment becomes healthy
 
-### Verification After Push:
+### Verification After Push + Redeploy:
 1. Check git status shows clean working tree
-2. Wait ~30 seconds for Koyeb to detect changes
-3. Check Koyeb dashboard for new deployment
-4. Verify deployment is healthy
+2. Go to Koyeb dashboard → Services → yg-claim-bot
+3. Click "Redeploy" → "Trigger build"
+4. Wait for build to complete (~30-60 seconds)
+5. Verify deployment shows "Healthy"
 
 ### Commit Message Format:
 ```
