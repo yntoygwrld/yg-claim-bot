@@ -72,47 +72,57 @@ def admin_only(func):
 # ============ COMMAND HANDLERS ============
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command with optional magic link token"""
+    """Handle /start command with optional magic link token.
+
+    Flow handles all cases:
+    1. Existing user → Welcome back
+    2. New user with token + in group → Complete onboarding
+    3. New user with token + NOT in group → Store pending, ask to join
+    4. New user without token + has pending + in group → Complete with pending data
+    5. New user without token + has pending + NOT in group → Remind to join
+    6. New user without token + no pending → Direct to website
+    """
     user = update.effective_user
     args = context.args
+    token = args[0] if args and len(args) > 0 else None
 
-    # STEP 1: Check if user is in the $YNTOYG Covenant (private group)
-    is_covenant_member = await check_covenant_membership(user.id, context)
-    if not is_covenant_member:
-        await update.message.reply_text(
-            "🎩 Welcome, aspiring Gentleman!\n\n"
-            "To begin your YG transformation, you must first join the Covenant.\n\n"
-            f"👉 Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
-            "Complete the verification process, then return and try /start again.\n\n"
-            "The journey from YN to YG awaits!"
-        )
-        return
-
-    # User is in the Covenant - continue with onboarding
-    # Check if user already exists
+    # STEP 1: Check if user already exists (returning user)
     existing_user = await db.get_user_by_telegram_id(user.id)
-
     if existing_user:
         await update.message.reply_text(
-            f"Welcome back, Gentleman! 🎩\n\n"
+            f"Welcome back, Gentleman!\n\n"
             f"Your current stats:\n"
-            f"• Gentleman Score: {existing_user.get('gentleman_score', 0)}\n"
-            f"• Streak: {existing_user.get('streak_count', 0)} days\n"
-            f"• Total Claims: {existing_user.get('total_claims', 0)}\n\n"
+            f"- Gentleman Score: {existing_user.get('gentleman_score', 0)}\n"
+            f"- Streak: {existing_user.get('streak_count', 0)} days\n"
+            f"- Total Claims: {existing_user.get('total_claims', 0)}\n\n"
             f"Use /claim to get today's video!"
         )
         return
 
-    # New user - check for magic link token
-    if args and len(args) > 0:
-        token = args[0]
-        email = await db.verify_magic_token(token)
+    # STEP 2: Check group membership
+    is_covenant_member = await check_covenant_membership(user.id, context)
 
-        if email:
-            # Create user with linked email
-            await db.create_user(email, user.id)
+    # STEP 3: Process token if provided
+    if token:
+        # Validate token WITHOUT consuming it yet
+        email = await db.verify_magic_token_without_consuming(token)
+
+        if not email:
             await update.message.reply_text(
-                f"🎩 Welcome to $YNTOYG, Gentleman!\n\n"
+                "Invalid or expired magic link.\n\n"
+                "Please get a new link from https://yntoyg.com"
+            )
+            return
+
+        if is_covenant_member:
+            # User has valid token AND is in group → Complete onboarding
+            await db.create_user(email, user.id)
+            await db.consume_magic_token(token)
+            # Clean up any pending record
+            await db.delete_pending_onboarding(user.id)
+
+            await update.message.reply_text(
+                f"Welcome to $YNTOYG, Gentleman!\n\n"
                 f"Your email ({email}) is now linked.\n\n"
                 f"Next steps:\n"
                 f"1. /wallet <address> - Connect your Solana wallet\n"
@@ -121,13 +131,64 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Let's transform from YN to YG together!"
             )
         else:
+            # User has valid token but NOT in group → Store pending
+            await db.store_pending_onboarding(user.id, email, token)
+
             await update.message.reply_text(
-                "❌ Invalid or expired magic link.\n\n"
-                "Please get a new link from https://yntoyg.com"
+                f"Welcome, aspiring Gentleman!\n\n"
+                f"Your email ({email}) has been verified.\n\n"
+                f"One more step: Join the Covenant to complete your registration.\n\n"
+                f"Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
+                f"After verification, return here and send /start again."
             )
-    else:
+        return
+
+    # STEP 4: No token - check for pending onboarding
+    pending = await db.get_pending_onboarding(user.id)
+
+    if pending:
+        if is_covenant_member:
+            # User completed group join → Finish onboarding with pending data
+            email = pending["email"]
+            original_token = pending["original_token"]
+
+            await db.create_user(email, user.id)
+            await db.consume_magic_token(original_token)
+            await db.delete_pending_onboarding(user.id)
+
+            await update.message.reply_text(
+                f"Welcome to $YNTOYG, Gentleman!\n\n"
+                f"Your email ({email}) is now linked.\n\n"
+                f"Next steps:\n"
+                f"1. /wallet <address> - Connect your Solana wallet\n"
+                f"2. /claim - Get your daily video (+10 points)\n"
+                f"3. /submit <url> - Submit your repost (+25 points)\n\n"
+                f"Let's transform from YN to YG together!"
+            )
+        else:
+            # User has pending but still not in group → Remind them
+            await update.message.reply_text(
+                f"Almost there, Gentleman!\n\n"
+                f"Your email is verified, but you still need to join the Covenant.\n\n"
+                f"Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
+                f"Complete the verification, then return and send /start again."
+            )
+        return
+
+    # STEP 5: No token, no pending, not in group → Direct to website
+    if not is_covenant_member:
         await update.message.reply_text(
-            "🎩 Welcome to $YNTOYG!\n\n"
+            f"Welcome to $YNTOYG!\n\n"
+            f"To begin your YG transformation:\n\n"
+            f"1. Sign up at https://yntoyg.com\n"
+            f"2. Check your email for the magic link\n"
+            f"3. Click the link to return here\n\n"
+            f"The journey from YN to YG awaits!"
+        )
+    else:
+        # In group but no token/pending → Sign up on website
+        await update.message.reply_text(
+            "Welcome to $YNTOYG!\n\n"
             "To get started, please sign up at:\n"
             "https://yntoyg.com\n\n"
             "You'll receive a magic link to connect your account."

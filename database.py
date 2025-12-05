@@ -316,3 +316,70 @@ async def get_video_by_id(video_id: str) -> Optional[Dict]:
     """Get a video by its ID"""
     result = supabase.table("videos").select("*").eq("id", video_id).execute()
     return result.data[0] if result.data else None
+
+
+# ============ PENDING ONBOARDING OPERATIONS ============
+
+async def store_pending_onboarding(telegram_id: int, email: str, token: str) -> Dict:
+    """Store pending onboarding when user has valid token but isn't in group yet.
+    Uses upsert to handle users who click the link multiple times."""
+    result = supabase.table("pending_onboarding").upsert({
+        "telegram_id": telegram_id,
+        "email": email,
+        "original_token": token,
+    }, on_conflict="telegram_id").execute()
+    return result.data[0] if result.data else {}
+
+
+async def get_pending_onboarding(telegram_id: int) -> Optional[Dict]:
+    """Get pending onboarding record for a telegram user"""
+    result = supabase.table("pending_onboarding").select("*").eq(
+        "telegram_id", telegram_id
+    ).execute()
+
+    if not result.data:
+        return None
+
+    record = result.data[0]
+
+    # Check if expired
+    expires_at = datetime.fromisoformat(record["expires_at"].replace("Z", "+00:00"))
+    if datetime.utcnow() > expires_at.replace(tzinfo=None):
+        # Expired - delete and return None
+        await delete_pending_onboarding(telegram_id)
+        return None
+
+    return record
+
+
+async def delete_pending_onboarding(telegram_id: int) -> bool:
+    """Delete pending onboarding record after successful completion"""
+    result = supabase.table("pending_onboarding").delete().eq(
+        "telegram_id", telegram_id
+    ).execute()
+    return True
+
+
+async def verify_magic_token_without_consuming(token: str) -> Optional[str]:
+    """Verify magic link token and return email if valid, WITHOUT marking as used.
+    Used when we need to validate token but can't complete onboarding yet."""
+    result = supabase.table("email_tokens").select("*").eq("token", token).eq("used", False).execute()
+
+    if not result.data:
+        return None
+
+    token_data = result.data[0]
+
+    # Check expiration
+    expires_at = datetime.fromisoformat(token_data["expires_at"].replace("Z", "+00:00"))
+    if datetime.utcnow() > expires_at.replace(tzinfo=None):
+        return None
+
+    # Return email WITHOUT marking token as used
+    return token_data["email"]
+
+
+async def consume_magic_token(token: str) -> bool:
+    """Mark a magic token as used after successful onboarding"""
+    result = supabase.table("email_tokens").update({"used": True}).eq("token", token).execute()
+    return len(result.data) > 0 if result.data else False
