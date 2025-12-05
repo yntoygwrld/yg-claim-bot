@@ -247,3 +247,43 @@ async def get_maintenance_message() -> str:
     """Get current maintenance message"""
     settings = await get_bot_settings()
     return settings.get("maintenance_message", "Bot is under maintenance.")
+
+
+# ============ VIDEO MANAGEMENT OPERATIONS (Admin) ============
+
+async def add_video_by_file_id(telegram_file_id: str, title: str) -> Dict:
+    """Add a video to the pool using Telegram file_id"""
+    result = supabase.table("videos").insert({
+        "telegram_file_id": telegram_file_id,
+        "title": title,
+        "is_active": True,
+        "times_claimed": 0,
+    }).execute()
+    return result.data[0]
+
+
+async def get_all_videos_admin() -> List[Dict]:
+    """Get all videos for admin management"""
+    result = supabase.table("videos").select("*").order("created_at", desc=True).execute()
+    return result.data
+
+
+async def toggle_video_active(video_id: str, is_active: bool) -> Optional[Dict]:
+    """Enable or disable a video"""
+    result = supabase.table("videos").update({
+        "is_active": is_active,
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("id", video_id).execute()
+    return result.data[0] if result.data else None
+
+
+async def delete_video(video_id: str) -> bool:
+    """Delete a video from the pool"""
+    result = supabase.table("videos").delete().eq("id", video_id).execute()
+    return len(result.data) > 0 if result.data else False
+
+
+async def get_video_by_id(video_id: str) -> Optional[Dict]:
+    """Get a video by its ID"""
+    result = supabase.table("videos").select("*").eq("id", video_id).execute()
+    return result.data[0] if result.data else None

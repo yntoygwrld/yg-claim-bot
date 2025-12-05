@@ -12,9 +12,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Admin Configuration
-# Add your Telegram user ID(s) here - get yours by messaging @userinfobot
 ADMIN_USER_IDS = [
-    int(uid.strip()) for uid in os.getenv("ADMIN_USER_IDS", "").split(",") if uid.strip()
+    8227072324,  # @OriginalYG - YNTOYG SEED
 ]
 
 # Bot Settings (defaults - can be overridden via database)

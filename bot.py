@@ -1,6 +1,8 @@
 """YG Video Claim Bot - Telegram bot for $YNTOYG viral content distribution"""
 import logging
 import re
+import tempfile
+from pathlib import Path
 from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -13,6 +15,7 @@ from telegram.ext import (
 )
 import config
 import database as db
+from video_uniquifier_integration import serve_unique_video, get_uniquifier
 
 # Setup logging
 logging.basicConfig(
@@ -237,7 +240,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Create claim record
     await db.create_claim(db_user["id"], video["id"])
 
-    # Send video
+    # Send initial message
     await update.message.reply_text(
         f"🎬 Here's your daily video, Gentleman!\n\n"
         f"📹 {video.get('title', 'YG Content')}\n\n"
@@ -248,11 +251,89 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"The more views you get, the higher you climb on the leaderboard! 🏆"
     )
 
-    # Send the actual video file
-    await update.message.reply_document(
-        document=video["video_url"],
-        caption="Post this and submit your link with /submit"
-    )
+    # Prepare video - prioritize telegram_file_id
+    file_id = video.get("telegram_file_id")
+    video_url = video.get("video_url")
+
+    if file_id:
+        # Download from Telegram, uniquify, and send
+        try:
+            # Download video from Telegram
+            file = await context.bot.get_file(file_id)
+            temp_dir = Path(tempfile.gettempdir()) / "yg_claim_temp"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            import uuid
+            temp_path = temp_dir / f"claim_{uuid.uuid4().hex[:8]}.mp4"
+            await file.download_to_drive(str(temp_path))
+
+            # Uniquify the video
+            success, result_path, metadata = await serve_unique_video(str(temp_path))
+
+            if success and Path(result_path).exists():
+                # Send uniquified video
+                with open(result_path, 'rb') as f:
+                    await update.message.reply_document(
+                        document=f,
+                        filename="yg_content.mp4",
+                        caption="Post this and submit your link with /submit"
+                    )
+
+                # Cleanup
+                uniquifier = get_uniquifier()
+                await uniquifier.cleanup(result_path)
+                if temp_path.exists():
+                    temp_path.unlink()
+
+                logger.info(f"Served unique video to user {user.id}, metadata: {metadata.get('unique_id', 'N/A')}")
+            else:
+                # Fallback: send original file
+                await update.message.reply_document(
+                    document=file_id,
+                    caption="Post this and submit your link with /submit"
+                )
+                if temp_path.exists():
+                    temp_path.unlink()
+                logger.warning(f"Uniquification failed, sent original: {result_path}")
+
+        except Exception as e:
+            logger.error(f"Error processing video: {e}")
+            # Fallback to direct file_id
+            await update.message.reply_document(
+                document=file_id,
+                caption="Post this and submit your link with /submit"
+            )
+
+    elif video_url:
+        # Legacy: URL-based video (uniquify from URL)
+        try:
+            success, result_path, metadata = await serve_unique_video(video_url)
+
+            if success and Path(result_path).exists():
+                with open(result_path, 'rb') as f:
+                    await update.message.reply_document(
+                        document=f,
+                        filename="yg_content.mp4",
+                        caption="Post this and submit your link with /submit"
+                    )
+                uniquifier = get_uniquifier()
+                await uniquifier.cleanup(result_path)
+            else:
+                # Fallback to direct URL
+                await update.message.reply_document(
+                    document=video_url,
+                    caption="Post this and submit your link with /submit"
+                )
+        except Exception as e:
+            logger.error(f"Error with URL video: {e}")
+            await update.message.reply_document(
+                document=video_url,
+                caption="Post this and submit your link with /submit"
+            )
+    else:
+        await update.message.reply_text(
+            "⚠️ Video file not available. Please contact admin."
+        )
 
 
 async def submit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -401,7 +482,10 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"/admin_maintenance <on|off> [message] - Toggle maintenance\n"
         f"/admin_announce <message> - Set announcement\n"
         f"/admin_limits <number> - Set max claims per day\n"
-        f"/admin_stats - Show bot statistics"
+        f"/admin_stats - Show bot statistics\n\n"
+        f"📹 Video Management:\n"
+        f"/addvideo - Add video to pool\n"
+        f"/listvideosadmin - List all videos"
     )
 
 
@@ -540,6 +624,106 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Error fetching statistics. Check logs.")
 
 
+@admin_only
+async def addvideo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Start add video flow - admin sends this command then forwards a video"""
+    context.user_data["awaiting_video_upload"] = True
+    await update.message.reply_text(
+        "🎬 Add Video to Pool\n\n"
+        "Now send me the video file as a DOCUMENT (not as video).\n"
+        "This preserves original quality.\n\n"
+        "To send as document:\n"
+        "📎 Attach → File → Select video → Send\n\n"
+        "Cancel with /cancel"
+    )
+
+
+@admin_only
+async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """List all videos with management options"""
+    videos = await db.get_all_videos_admin()
+
+    if not videos:
+        await update.message.reply_text(
+            "📹 No videos in pool.\n\n"
+            "Use /addvideo to add videos."
+        )
+        return
+
+    text = "📹 Video Pool\n\n"
+    for i, video in enumerate(videos, 1):
+        status = "✅" if video.get("is_active") else "⏸️"
+        title = video.get("title", "Untitled")[:30]
+        claims = video.get("times_claimed", 0)
+        has_file_id = "📁" if video.get("telegram_file_id") else "🔗"
+        vid_id = video.get("id", "")[:8]
+
+        text += f"{i}. {status} {has_file_id} {title}\n"
+        text += f"   Claims: {claims} | ID: {vid_id}...\n\n"
+
+    text += "Commands:\n"
+    text += "/video_enable <id> - Enable video\n"
+    text += "/video_disable <id> - Disable video\n"
+    text += "/video_delete <id> - Delete video\n"
+
+    await update.message.reply_text(text)
+
+
+@admin_only
+async def video_enable(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Enable a video"""
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /video_enable <video_id>")
+        return
+
+    video_id = args[0]
+    result = await db.toggle_video_active(video_id, True)
+    if result:
+        await update.message.reply_text(f"✅ Video {video_id[:8]}... enabled")
+    else:
+        await update.message.reply_text("❌ Video not found")
+
+
+@admin_only
+async def video_disable(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Disable a video"""
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /video_disable <video_id>")
+        return
+
+    video_id = args[0]
+    result = await db.toggle_video_active(video_id, False)
+    if result:
+        await update.message.reply_text(f"⏸️ Video {video_id[:8]}... disabled")
+    else:
+        await update.message.reply_text("❌ Video not found")
+
+
+@admin_only
+async def video_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Delete a video"""
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /video_delete <video_id>")
+        return
+
+    video_id = args[0]
+    result = await db.delete_video(video_id)
+    if result:
+        await update.message.reply_text(f"🗑️ Video {video_id[:8]}... deleted")
+    else:
+        await update.message.reply_text("❌ Video not found")
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cancel current operation"""
+    context.user_data.pop("awaiting_video_upload", None)
+    context.user_data.pop("connecting_platform", None)
+    await update.message.reply_text("Operation cancelled.")
+
+
 # ============ CALLBACK HANDLERS ============
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -572,6 +756,58 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle document uploads (for admin video upload flow)"""
+    user = update.effective_user
+
+    # Check if admin is awaiting video upload
+    if context.user_data.get("awaiting_video_upload"):
+        # Verify admin
+        if user.id not in config.ADMIN_USER_IDS:
+            return
+
+        document = update.message.document
+        if not document:
+            await update.message.reply_text("Please send a video file as document.")
+            return
+
+        # Check if it's a video file
+        mime = document.mime_type or ""
+        filename = document.file_name or "video.mp4"
+
+        if not mime.startswith("video/") and not filename.lower().endswith(('.mp4', '.mov', '.webm')):
+            await update.message.reply_text(
+                "❌ Please send a video file (.mp4, .mov, .webm)"
+            )
+            return
+
+        # Get the file_id
+        file_id = document.file_id
+        title = Path(filename).stem.replace('_', ' ').replace('-', ' ').title()
+
+        # Clear the flag
+        context.user_data.pop("awaiting_video_upload", None)
+
+        try:
+            # Add to database
+            video = await db.add_video_by_file_id(file_id, title)
+            vid_id = video.get("id", "")[:8]
+
+            await update.message.reply_text(
+                f"✅ Video added to pool!\n\n"
+                f"📹 Title: {title}\n"
+                f"🆔 ID: {vid_id}...\n"
+                f"📁 File ID stored\n"
+                f"✅ Status: Active\n\n"
+                f"Use /listvideosadmin to see all videos."
+            )
+            logger.info(f"Video added by admin {user.id}: {video.get('id')}")
+
+        except Exception as e:
+            logger.error(f"Error adding video: {e}")
+            await update.message.reply_text(f"❌ Error adding video: {str(e)}")
+
+
 # ============ MAIN ============
 
 def main() -> None:
@@ -598,8 +834,19 @@ def main() -> None:
     application.add_handler(CommandHandler("admin_limits", admin_limits))
     application.add_handler(CommandHandler("admin_stats", admin_stats))
 
+    # Add video management handlers
+    application.add_handler(CommandHandler("addvideo", addvideo))
+    application.add_handler(CommandHandler("listvideosadmin", listvideosadmin))
+    application.add_handler(CommandHandler("video_enable", video_enable))
+    application.add_handler(CommandHandler("video_disable", video_disable))
+    application.add_handler(CommandHandler("video_delete", video_delete))
+    application.add_handler(CommandHandler("cancel", cancel))
+
     # Add callback handler for inline keyboards
     application.add_handler(CallbackQueryHandler(button_callback))
+
+    # Add document handler for video uploads (before text handler)
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     # Add message handler for connection flow
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
