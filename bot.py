@@ -653,13 +653,14 @@ async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = "📹 Video Pool\n\n"
     for i, video in enumerate(videos, 1):
         status = "✅" if video.get("is_active") else "⏸️"
-        title = video.get("title", "Untitled")[:30]
+        title = video.get("title", "Untitled")
         claims = video.get("times_claimed", 0)
         has_file_id = "📁" if video.get("telegram_file_id") else "🔗"
-        vid_id = video.get("id", "")[:8]
+        vid_id = video.get("id", "")
 
         text += f"{i}. {status} {has_file_id} {title}\n"
-        text += f"   Claims: {claims} | ID: {vid_id}...\n\n"
+        text += f"   Claims: {claims}\n"
+        text += f"   ID: `{vid_id}`\n\n"
 
     text += "Commands:\n"
     text += "/video_enable <id> - Enable video\n"
