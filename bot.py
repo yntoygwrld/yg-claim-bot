@@ -924,22 +924,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle document uploads (for admin video upload flow)"""
+async def handle_video_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle video uploads (both document and video types) for admin upload flow"""
     user = update.effective_user
 
     # Check if admin is awaiting video upload
-    if context.user_data.get("awaiting_video_upload"):
-        # Verify admin
-        if user.id not in config.ADMIN_USER_IDS:
-            return
+    if not context.user_data.get("awaiting_video_upload"):
+        return
 
-        document = update.message.document
-        if not document:
-            await update.message.reply_text("Please send a video file as document.")
-            return
+    # Verify admin
+    if user.id not in config.ADMIN_USER_IDS:
+        return
 
-        # Check if it's a video file
+    # Handle both document and video message types
+    document = update.message.document
+    video = update.message.video
+
+    if document:
+        # Sent as document/file
         mime = document.mime_type or ""
         filename = document.file_name or "video.mp4"
 
@@ -949,45 +951,52 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
             return
 
-        # Get the file_id
         file_id = document.file_id
         title = Path(filename).stem.replace('_', ' ').replace('-', ' ').title()
+    elif video:
+        # Sent as video (Telegram auto-detected)
+        file_id = video.file_id
+        filename = video.file_name or f"video_{video.file_unique_id}.mp4"
+        title = Path(filename).stem.replace('_', ' ').replace('-', ' ').title()
+    else:
+        await update.message.reply_text("Please send a video file.")
+        return
 
-        # Check if we're in bulk upload mode
-        is_bulk = context.user_data.get("bulk_upload_mode", False)
+    # Check if we're in bulk upload mode
+    is_bulk = context.user_data.get("bulk_upload_mode", False)
 
-        try:
-            # Add to database
-            video = await db.add_video_by_file_id(file_id, title)
-            vid_id = video.get("id", "")[:8]
+    try:
+        # Add to database
+        video_record = await db.add_video_by_file_id(file_id, title)
+        vid_id = video_record.get("id", "")[:8]
 
-            if is_bulk:
-                # Bulk mode: increment counter, show brief confirmation
-                count = context.user_data.get("bulk_upload_count", 0) + 1
-                context.user_data["bulk_upload_count"] = count
-                await update.message.reply_text(
-                    f"✅ #{count} added: {title}\n"
-                    f"Send more or /done to finish"
-                )
-            else:
-                # Single mode: clear flag, show full confirmation
-                context.user_data.pop("awaiting_video_upload", None)
-                context.user_data.pop("bulk_upload_mode", None)
-                context.user_data.pop("bulk_upload_count", None)
-                await update.message.reply_text(
-                    f"✅ Video added to pool!\n\n"
-                    f"📹 Title: {title}\n"
-                    f"🆔 ID: {vid_id}...\n"
-                    f"📁 File ID stored\n"
-                    f"✅ Status: Active\n\n"
-                    f"Use /listvideosadmin to see all videos."
-                )
+        if is_bulk:
+            # Bulk mode: increment counter, show brief confirmation
+            count = context.user_data.get("bulk_upload_count", 0) + 1
+            context.user_data["bulk_upload_count"] = count
+            await update.message.reply_text(
+                f"✅ #{count} added: {title}\n"
+                f"Send more or /done to finish"
+            )
+        else:
+            # Single mode: clear flag, show full confirmation
+            context.user_data.pop("awaiting_video_upload", None)
+            context.user_data.pop("bulk_upload_mode", None)
+            context.user_data.pop("bulk_upload_count", None)
+            await update.message.reply_text(
+                f"✅ Video added to pool!\n\n"
+                f"📹 Title: {title}\n"
+                f"🆔 ID: {vid_id}...\n"
+                f"📁 File ID stored\n"
+                f"✅ Status: Active\n\n"
+                f"Use /listvideosadmin to see all videos."
+            )
 
-            logger.info(f"Video added by admin {user.id}: {video.get('id')}")
+        logger.info(f"Video added by admin {user.id}: {video_record.get('id')}")
 
-        except Exception as e:
-            logger.error(f"Error adding video: {e}")
-            await update.message.reply_text(f"❌ Error adding video: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error adding video: {e}")
+        await update.message.reply_text(f"❌ Error adding video: {str(e)}")
 
 
 # ============ MAIN ============
@@ -1030,8 +1039,9 @@ def main() -> None:
     # Add callback handler for inline keyboards
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Add document handler for video uploads (before text handler)
-    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    # Add handlers for video uploads - supports both document AND video types
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_video_upload))
+    application.add_handler(MessageHandler(filters.VIDEO, handle_video_upload))
 
     # Add message handler for connection flow
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
