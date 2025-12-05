@@ -7,7 +7,6 @@ It handles downloading videos, uniquifying metadata, and serving to users.
 """
 
 import os
-import sys
 import asyncio
 import aiohttp
 import tempfile
@@ -16,10 +15,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
-# Add metadata thing directory to path for imports
-METADATA_DIR = Path(__file__).parent.parent / "metadata thing"
-sys.path.insert(0, str(METADATA_DIR))
-
+# Import from local modules (copied to this directory)
 from video_uniquifier import generate_complete_fake_metadata, generate_xmp_xml
 from mp4_xmp_injector import replace_xmp_in_mp4, find_xmp_box
 
@@ -272,8 +268,8 @@ if __name__ == "__main__":
         print("VIDEO UNIQUIFIER INTEGRATION TEST")
         print("=" * 60)
 
-        # Test with local file
-        test_video = str(METADATA_DIR / "video (1).mp4")
+        # Test with local file (requires a test video in the same directory)
+        test_video = "test_video.mp4"
 
         print(f"\nTesting with: {test_video}")
 
