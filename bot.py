@@ -770,8 +770,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # Admin wants to copy a video ID - send it as a standalone message
         video_id = query.data.replace("copyid_", "")
         await query.message.reply_text(
-            f"<code>{video_id}</code>\n\n"
-            f"👆 Tap and hold to copy",
+            f"<code>{video_id}</code>",
             parse_mode="HTML"
         )
 
