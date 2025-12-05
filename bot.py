@@ -116,8 +116,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Your email ({email}) is now linked.\n\n"
                 f"Next steps:\n"
                 f"1. /wallet <address> - Connect your Solana wallet\n"
-                f"2. /connect - Link your social accounts\n"
-                f"3. /claim - Get your daily video\n\n"
+                f"2. /claim - Get your daily video (+10 points)\n"
+                f"3. /submit <url> - Submit your repost (+25 points)\n\n"
                 f"Let's transform from YN to YG together!"
             )
         else:
@@ -168,43 +168,11 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"✅ Wallet connected!\n\n"
         f"Address: {wallet_address[:8]}...{wallet_address[-4:]}\n\n"
-        f"Next: Use /connect to link your socials, then /claim to get your daily video!"
+        f"Next: Use /claim to get your daily video, then /submit to earn points!"
     )
 
 
-async def connect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /connect command to link social accounts"""
-    user = update.effective_user
-
-    # Check if user exists
-    db_user = await db.get_user_by_telegram_id(user.id)
-    if not db_user:
-        await update.message.reply_text(
-            "Please complete /start first to link your account."
-        )
-        return
-
-    keyboard = [
-        [InlineKeyboardButton("📱 TikTok", callback_data="connect_tiktok")],
-        [InlineKeyboardButton("📸 Instagram", callback_data="connect_instagram")],
-        [InlineKeyboardButton("🐦 Twitter/X", callback_data="connect_twitter")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    # Show current connections
-    tiktok = db_user.get("tiktok_username", "Not connected")
-    instagram = db_user.get("instagram_username", "Not connected")
-    twitter = db_user.get("twitter_username", "Not connected")
-
-    await update.message.reply_text(
-        f"🔗 Connect your social accounts\n\n"
-        f"Current connections:\n"
-        f"• TikTok: {tiktok}\n"
-        f"• Instagram: {instagram}\n"
-        f"• Twitter: {twitter}\n\n"
-        f"Select a platform to connect:",
-        reply_markup=reply_markup
-    )
+# REMOVED: /connect command - social username collection removed for simplicity
 
 
 async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -251,8 +219,11 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Create claim record
-    await db.create_claim(db_user["id"], video["id"])
+    # Create claim record (with telegram_id for points)
+    await db.create_claim(db_user["id"], video["id"], user.id)
+
+    # Store video_id for later /submit
+    context.user_data['last_claimed_video_id'] = video["id"]
 
     # Send initial message
     await update.message.reply_text(
@@ -389,19 +360,17 @@ async def submit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # TODO: Get the most recent video claimed by user
-    # For now, we'll use a placeholder
-    video_id = None  # Will be implemented with proper claim tracking
+    # Get the most recent video claimed by user
+    video_id = context.user_data.get('last_claimed_video_id')
 
-    # Create repost record
-    await db.create_repost(db_user["id"], video_id, platform, post_url)
+    # Create repost record (with telegram_id for points)
+    await db.create_repost(db_user["id"], video_id, platform, post_url, user.id)
 
     await update.message.reply_text(
-        f"✅ Repost submitted!\n\n"
+        f"✅ Repost submitted! +25 points\n\n"
         f"Platform: {platform.title()}\n"
         f"URL: {post_url}\n\n"
-        f"We'll track your views and update your score.\n"
-        f"Check /mystats to see your progress!"
+        f"Check /mystats to see your updated score!"
     )
 
 
@@ -416,14 +385,19 @@ async def mystats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    points = db_user.get('gentleman_score', 0)
+    claims = db_user.get('total_claims', 0)
+    streak = db_user.get('streak_count', 0)
+
     await update.message.reply_text(
         f"📊 Your Stats, Gentleman\n\n"
-        f"🎩 Gentleman Score: {db_user.get('gentleman_score', 0)}\n"
-        f"🔥 Streak: {db_user.get('streak_count', 0)} days\n"
-        f"📹 Total Claims: {db_user.get('total_claims', 0)}\n"
-        f"📤 Total Reposts: {db_user.get('total_reposts', 0)}\n"
-        f"👀 Total Views Generated: {db_user.get('total_views_generated', 0):,}\n\n"
-        f"Keep posting to climb the leaderboard! 🏆"
+        f"⭐ Points: {points}\n"
+        f"📹 Videos Claimed: {claims}\n"
+        f"🔥 Streak: {streak} days\n\n"
+        f"Points breakdown:\n"
+        f"• Each claim: +10 points\n"
+        f"• Each submit: +25 points\n\n"
+        f"Keep claiming and posting! 🏆"
     )
 
 
@@ -459,14 +433,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🎩 $YNTOYG - How It Works\n\n"
         "1️⃣ /start - Begin your journey\n"
         "2️⃣ /wallet <addr> - Connect Solana wallet\n"
-        "3️⃣ /connect - Link social accounts\n"
-        "4️⃣ /claim - Get daily video content\n"
-        "5️⃣ Post the video on TikTok/IG/Twitter\n"
-        "6️⃣ /submit <url> - Submit your post link\n"
-        "7️⃣ Earn points based on views!\n\n"
+        "3️⃣ /claim - Get daily video (+10 points)\n"
+        "4️⃣ Post the video on TikTok/IG/Twitter\n"
+        "5️⃣ /submit <url> - Submit your post link (+25 points)\n\n"
         "📊 /mystats - View your progress\n"
         "🏆 /leaderboard - See top performers\n\n"
-        "The more views you generate, the higher your Gentleman Score!\n\n"
+        "The more you claim and post, the higher your score!\n\n"
         "Learn more: https://yntoyg.com\n"
         "Community: https://t.me/yntoyg"
     )
@@ -854,7 +826,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop("awaiting_video_upload", None)
     context.user_data.pop("bulk_upload_mode", None)
     context.user_data.pop("bulk_upload_count", None)
-    context.user_data.pop("connecting_platform", None)
+    # REMOVED: context.user_data.pop("connecting_platform", None)
 
 
 @admin_only
@@ -891,15 +863,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
 
-    if query.data.startswith("connect_"):
-        platform = query.data.replace("connect_", "")
-        context.user_data["connecting_platform"] = platform
-        await query.edit_message_text(
-            f"Please send your {platform.title()} username:\n\n"
-            f"Example: @yourUsername or just yourUsername"
-        )
+    # REMOVED: connect_ callback handling (social username collection removed)
 
-    elif query.data.startswith("copyid_"):
+    if query.data.startswith("copyid_"):
         # Admin wants to copy a video ID - send it as a standalone message
         video_id = query.data.replace("copyid_", "")
         await query.message.reply_text(
@@ -909,19 +875,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle text messages (for social account connection flow)"""
-    user = update.effective_user
-
-    # Check if we're in a connection flow
-    if "connecting_platform" in context.user_data:
-        platform = context.user_data.pop("connecting_platform")
-        username = update.message.text.strip().lstrip("@")
-
-        await db.update_user_socials(user.id, platform, username)
-        await update.message.reply_text(
-            f"✅ {platform.title()} connected: @{username}\n\n"
-            f"Use /connect to link more accounts or /claim to get your video!"
-        )
+    """Handle text messages"""
+    # REMOVED: Social username collection flow
+    # Plain text messages no longer need special handling
+    pass
 
 
 async def handle_video_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1009,7 +966,7 @@ def main() -> None:
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("wallet", wallet))
-    application.add_handler(CommandHandler("connect", connect))
+    # REMOVED: CommandHandler("connect", connect) - social username collection removed
     application.add_handler(CommandHandler("claim", claim))
     application.add_handler(CommandHandler("submit", submit))
     application.add_handler(CommandHandler("mystats", mystats))

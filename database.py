@@ -50,6 +50,28 @@ async def update_user_socials(telegram_id: int, platform: str, username: str) ->
     return result.data[0]
 
 
+async def increment_points(telegram_id: int, points: int) -> bool:
+    """Increment user's gentleman_score (points) by specified amount."""
+    import logging
+    try:
+        # Get current score
+        result = supabase.table("users").select("gentleman_score").eq("telegram_id", telegram_id).single().execute()
+        current_score = result.data.get("gentleman_score", 0) if result.data else 0
+
+        # Update with new total
+        new_score = current_score + points
+        supabase.table("users").update({
+            "gentleman_score": new_score,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("telegram_id", telegram_id).execute()
+
+        logging.info(f"Points updated for user {telegram_id}: {current_score} -> {new_score} (+{points})")
+        return True
+    except Exception as e:
+        logging.error(f"Error incrementing points for user {telegram_id}: {e}")
+        return False
+
+
 # ============ TOKEN OPERATIONS ============
 
 async def verify_magic_token(token: str) -> Optional[str]:
@@ -101,8 +123,8 @@ async def has_claimed_today(user_id: str) -> bool:
     return len(result.data) > 0
 
 
-async def create_claim(user_id: str, video_id: str) -> Dict:
-    """Create a new daily claim record"""
+async def create_claim(user_id: str, video_id: str, telegram_id: int) -> Dict:
+    """Create a new daily claim record and award points"""
     result = supabase.table("daily_claims").insert({
         "user_id": user_id,
         "video_id": video_id,
@@ -112,19 +134,26 @@ async def create_claim(user_id: str, video_id: str) -> Dict:
     # Update user stats
     supabase.rpc("increment_user_claims", {"user_id_param": user_id}).execute()
 
+    # Award points for claiming (+10)
+    await increment_points(telegram_id, 10)
+
     return result.data[0]
 
 
 # ============ REPOST OPERATIONS ============
 
-async def create_repost(user_id: str, video_id: str, platform: str, post_url: str) -> Dict:
-    """Create a new repost submission"""
+async def create_repost(user_id: str, video_id: str, platform: str, post_url: str, telegram_id: int) -> Dict:
+    """Create a new repost submission and award points"""
     result = supabase.table("reposts").insert({
         "user_id": user_id,
         "video_id": video_id,
         "platform": platform,
         "post_url": post_url,
     }).execute()
+
+    # Award points for submitting (+25)
+    await increment_points(telegram_id, 25)
+
     return result.data[0]
 
 
