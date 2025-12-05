@@ -138,8 +138,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Welcome, aspiring Gentleman!\n\n"
                 f"Your email ({email}) has been verified.\n\n"
                 f"One more step: Join the Covenant to complete your registration.\n\n"
-                f"Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
-                f"After verification, return here and send /start again."
+                f"Join here: {config.YNTOYG_COVENANT_INVITE_LINK}\n\n"
+                f"After joining, return here and send /start again."
             )
         return
 
@@ -170,8 +170,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(
                 f"Almost there, Gentleman!\n\n"
                 f"Your email is verified, but you still need to join the Covenant.\n\n"
-                f"Join here: {config.YNTOYG_VERIFICATION_PORTAL}\n\n"
-                f"Complete the verification, then return and send /start again."
+                f"Join here: {config.YNTOYG_COVENANT_INVITE_LINK}\n\n"
+                f"After joining, return here and send /start again."
             )
         return
 

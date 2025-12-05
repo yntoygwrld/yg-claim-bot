@@ -37,7 +37,7 @@ URL_PATTERNS = {
 
 # YNTOYG Community
 YNTOYG_COVENANT_GROUP_ID = -1003372132039  # Private group: $YNTOYG Covenant
-YNTOYG_VERIFICATION_PORTAL = "https://t.me/yntoyg"  # Public verification channel
+YNTOYG_COVENANT_INVITE_LINK = "https://t.me/+6qtZGyO3cvliNmI0"  # Direct invite to Covenant (with Safeguard)
 
 # Default bot settings (stored in database for runtime changes)
 DEFAULT_BOT_SETTINGS = {
