@@ -90,12 +90,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     existing_user = await db.get_user_by_telegram_id(user.id)
     if existing_user:
         await update.message.reply_text(
-            f"Welcome back, Gentleman!\n\n"
-            f"Your current stats:\n"
-            f"- Gentleman Score: {existing_user.get('gentleman_score', 0)}\n"
-            f"- Streak: {existing_user.get('streak_count', 0)} days\n"
-            f"- Total Claims: {existing_user.get('total_claims', 0)}\n\n"
-            f"Use /claim to get today's video!"
+            f"Welcome back.\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"YOUR STATS\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"▸ Gentleman Score: {existing_user.get('gentleman_score', 0)}\n"
+            f"▸ Streak: {existing_user.get('streak_count', 0)} days\n"
+            f"▸ Total Claims: {existing_user.get('total_claims', 0)}\n\n"
+            f"Type /claim to get today's video."
         )
         return
 
@@ -109,8 +111,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if not email:
             await update.message.reply_text(
-                "Invalid or expired magic link.\n\n"
-                "Please get a new link from https://yntoyg.com"
+                f"INVALID OR EXPIRED LINK\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"This magic link is no longer valid.\n\n"
+                f"Get a new link at https://yntoyg.com"
             )
             return
 
@@ -122,25 +126,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await db.delete_pending_onboarding(user.id)
 
             await update.message.reply_text(
-                f"Welcome to $YNTOYG, Gentleman!\n\n"
+                f"Welcome to the Covenant.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"ACCOUNT ACTIVATED\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"Your email ({email}) is now linked.\n\n"
-                f"Next steps:\n"
-                f"1. /wallet <address> - Connect your Solana wallet\n"
-                f"2. /claim - Get your daily video (+10 points)\n"
-                f"3. /submit <url> - Submit your repost (+25 points)\n\n"
-                f"Let's transform from YN to YG together!"
+                f"AVAILABLE COMMANDS\n\n"
+                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /submit <url> - Submit your repost (+25 points)\n"
+                f"▸ /wallet <address> - Connect Solana wallet\n"
+                f"▸ /mystats - View your stats\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"From YN to YG."
             )
         else:
             # User has valid token but NOT in group → Store pending
             await db.store_pending_onboarding(user.id, email, token)
 
             await update.message.reply_text(
-                f"Welcome, aspiring Gentleman!\n\n"
-                f"Your email ({email}) has been verified.\n\n"
-                f"One more step: Complete verification to join the Covenant.\n\n"
-                f"Verify here: {config.YNTOYG_PORTAL_LINK}\n\n"
-                f"After verification, you'll be added to our private community.\n"
-                f"Then return here and send /start again."
+                f"Your email ({email}) has been verified.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"NEXT STEP: JOIN THE COVENANT\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
+                f"2. Complete verification\n"
+                f"3. You will be added to the private group\n"
+                f"4. Return to this chat\n"
+                f"5. Type /start\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"You MUST type /start after joining."
             )
         return
 
@@ -158,42 +172,63 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await db.delete_pending_onboarding(user.id)
 
             await update.message.reply_text(
-                f"Welcome to $YNTOYG, Gentleman!\n\n"
+                f"Welcome to the Covenant.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"ACCOUNT ACTIVATED\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"Your email ({email}) is now linked.\n\n"
-                f"Next steps:\n"
-                f"1. /wallet <address> - Connect your Solana wallet\n"
-                f"2. /claim - Get your daily video (+10 points)\n"
-                f"3. /submit <url> - Submit your repost (+25 points)\n\n"
-                f"Let's transform from YN to YG together!"
+                f"AVAILABLE COMMANDS\n\n"
+                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /submit <url> - Submit your repost (+25 points)\n"
+                f"▸ /wallet <address> - Connect Solana wallet\n"
+                f"▸ /mystats - View your stats\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"From YN to YG."
             )
         else:
             # User has pending but still not in group → Remind them
             await update.message.reply_text(
-                f"Almost there, Gentleman!\n\n"
-                f"Your email is verified, but you still need to complete verification.\n\n"
-                f"Verify here: {config.YNTOYG_PORTAL_LINK}\n\n"
-                f"After verification, you'll be added to our private community.\n"
-                f"Then return here and send /start again."
+                f"Your email is verified, but you have not joined the Covenant yet.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"COMPLETE THESE STEPS\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
+                f"2. Complete verification\n"
+                f"3. You will be added to the private group\n"
+                f"4. Return to this chat\n"
+                f"5. Type /start\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"You MUST type /start after joining."
             )
         return
 
     # STEP 5: No token, no pending, not in group → Direct to website
     if not is_covenant_member:
         await update.message.reply_text(
-            f"Welcome to $YNTOYG!\n\n"
-            f"To begin your YG transformation:\n\n"
-            f"1. Sign up at https://yntoyg.com\n"
-            f"2. Check your email for the magic link\n"
-            f"3. Click the link to return here\n\n"
-            f"The journey from YN to YG awaits!"
+            f"$YNTOYG\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"GET STARTED\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"1. Go to https://yntoyg.com\n"
+            f"2. Enter your email\n"
+            f"3. Check your inbox for the magic link\n"
+            f"4. Click the link to return here\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"From YN to YG."
         )
     else:
         # In group but no token/pending → Sign up on website
         await update.message.reply_text(
-            "Welcome to $YNTOYG!\n\n"
-            "To get started, please sign up at:\n"
-            "https://yntoyg.com\n\n"
-            "You'll receive a magic link to connect your account."
+            f"$YNTOYG\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"SIGN UP REQUIRED\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"You are in the Covenant but have not linked your account.\n\n"
+            f"1. Go to https://yntoyg.com\n"
+            f"2. Enter your email\n"
+            f"3. Click the magic link in your inbox\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"From YN to YG."
         )
 
 
