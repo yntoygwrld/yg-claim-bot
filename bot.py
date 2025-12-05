@@ -665,23 +665,35 @@ async def listvideosadmin(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     text = "📹 <b>Video Pool</b>\n\n"
+    keyboard_buttons = []
+
     for i, video in enumerate(videos, 1):
         status = "✅" if video.get("is_active") else "⏸️"
         title = video.get("title", "Untitled")
         claims = video.get("times_claimed", 0)
         has_file_id = "📁" if video.get("telegram_file_id") else "🔗"
         vid_id = video.get("id", "")
+        short_id = vid_id[:8] if vid_id else "?"
 
         text += f"{i}. {status} {has_file_id} {title}\n"
-        text += f"   Claims: {claims}\n"
-        text += f"   ID: <code>{vid_id}</code>\n\n"
+        text += f"   Claims: {claims} | ID: {short_id}...\n\n"
 
+        # Add copy button for each video
+        keyboard_buttons.append([
+            InlineKeyboardButton(
+                f"📋 Copy ID #{i}: {short_id}...",
+                callback_data=f"copyid_{vid_id}"
+            )
+        ])
+
+    text += "<b>Tap button to get copyable ID</b>\n\n"
     text += "<b>Commands:</b>\n"
     text += "/video_enable &lt;id&gt; - Enable video\n"
     text += "/video_disable &lt;id&gt; - Disable video\n"
     text += "/video_delete &lt;id&gt; - Delete video"
 
-    await update.message.reply_text(text, parse_mode="HTML")
+    reply_markup = InlineKeyboardMarkup(keyboard_buttons)
+    await update.message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
 
 
 @admin_only
@@ -752,6 +764,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(
             f"Please send your {platform.title()} username:\n\n"
             f"Example: @yourUsername or just yourUsername"
+        )
+
+    elif query.data.startswith("copyid_"):
+        # Admin wants to copy a video ID - send it as a standalone message
+        video_id = query.data.replace("copyid_", "")
+        await query.message.reply_text(
+            f"<code>{video_id}</code>\n\n"
+            f"👆 Tap and hold to copy",
+            parse_mode="HTML"
         )
 
 
