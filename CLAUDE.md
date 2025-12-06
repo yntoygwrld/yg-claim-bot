@@ -3,6 +3,31 @@
 ## Project Overview
 Telegram bot for $YNTOYG viral content distribution. Users claim daily videos, repost on socials, and earn points.
 
+## 🧪 TESTING PROTOCOL
+
+### Test Account
+- **Email:** hugepileofjunk@gmail.com
+- **Telegram ID:** 5836555576
+
+### Before EVERY Test
+1. **Wipe test data** - Tell Claude: `Delete all records for hugepileofjunk@gmail.com`
+2. **Leave Covenant group** (if testing "join group" flow) - User must manually leave $YNTOYG Covenant group in Telegram
+3. Wait for Claude to confirm "DELETED"
+
+### Two Onboarding Paths
+The bot has TWO different flows based on group membership:
+
+| Scenario | Flow |
+|----------|------|
+| Valid token + ALREADY in group | Instant activation (skips join step) |
+| Valid token + NOT in group | Pending state → "Join group first" → Button to complete |
+
+### To Test "Join Group" Flow
+User MUST leave the Covenant group before testing, otherwise they'll hit the "instant activation" path.
+
+### Test Guide Location
+Full step-by-step test guide: `/mnt/x/YNTOYG/POST_LAUNCH/TEST_GUIDE.md`
+
 ## 🚨 STRICT ACCOUNT RULES - MANDATORY
 
 ### GitHub Account

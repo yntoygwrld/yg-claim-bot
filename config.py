@@ -28,11 +28,15 @@ VIEW_MULTIPLIER = 0.01  # 1 point per 100 views
 # Platforms
 SUPPORTED_PLATFORMS = ["tiktok", "instagram", "twitter"]
 
-# URL Patterns
+# URL Patterns - More permissive to accept all common URL formats
+# We collect URLs now, manual audit happens during airdrops
 URL_PATTERNS = {
-    "tiktok": r"tiktok\.com/@[\w\.]+/video/\d+",
-    "instagram": r"instagram\.com/(p|reel)/[\w-]+",
-    "twitter": r"(twitter|x)\.com/\w+/status/\d+",
+    # TikTok: standard, www, short URLs (vm.tiktok, vt.tiktok)
+    "tiktok": r"(www\.)?(tiktok\.com/@[\w\.]+/video/\d+|(vm|vt)\.tiktok\.com/[\w]+)",
+    # Instagram: posts, reels, with www and query params
+    "instagram": r"(www\.)?instagram\.com/(p|reel|reels)/[\w-]+",
+    # Twitter/X: standard, www, mobile
+    "twitter": r"(www\.|mobile\.)?(twitter|x)\.com/\w+/status/\d+",
 }
 
 # YNTOYG Community

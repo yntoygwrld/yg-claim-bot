@@ -188,7 +188,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /claim - Get your daily video\n"
                 f"▸ /submit <url> - Submit your repost (+25 points)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
@@ -244,7 +244,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /claim - Get your daily video\n"
                 f"▸ /submit <url> - Submit your repost (+25 points)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
@@ -472,11 +472,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"🎬 Here's your daily video, Gentleman!\n\n"
         f"📹 {video.get('title', 'YG Content')}\n\n"
-        f"Instructions:\n"
-        f"1. Download and repost on TikTok, Instagram, or Twitter\n"
-        f"2. Use /submit <link> to submit your repost\n"
-        f"3. Earn points based on views!\n\n"
-        f"The more views you get, the higher you climb on the leaderboard! 🏆"
+        f"Post this and submit your link with /submit"
     )
 
     # Prepare video - prioritize telegram_file_id
@@ -637,9 +633,7 @@ async def mystats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"⭐ Points: {points}\n"
         f"📹 Videos Claimed: {claims}\n"
         f"🔥 Streak: {streak} days\n\n"
-        f"Points breakdown:\n"
-        f"• Each claim: +10 points\n"
-        f"• Each submit: +25 points\n\n"
+        f"Submit your repost links with /submit to earn +25 points each!\n\n"
         f"Keep claiming and posting! 🏆"
     )
 
@@ -676,12 +670,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🎩 $YNTOYG - How It Works\n\n"
         "1️⃣ /start - Begin your journey\n"
         "2️⃣ /wallet <addr> - Connect Solana wallet\n"
-        "3️⃣ /claim - Get daily video (+10 points)\n"
+        "3️⃣ /claim - Get your daily video\n"
         "4️⃣ Post the video on TikTok/IG/Twitter\n"
-        "5️⃣ /submit <url> - Submit your post link (+25 points)\n\n"
+        "5️⃣ /submit <url> - Submit your link (+25 points)\n\n"
         "📊 /mystats - View your progress\n"
         "🏆 /leaderboard - See top performers\n\n"
-        "The more you claim and post, the higher your score!\n\n"
+        "Post and submit to earn points and climb the leaderboard!\n\n"
         "Learn more: https://yntoyg.com\n"
         "Community: https://t.me/yntoyg"
     )
@@ -1154,7 +1148,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /claim - Get your daily video\n"
                 f"▸ /submit <url> - Submit your repost (+25 points)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
