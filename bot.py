@@ -149,6 +149,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # User has valid token but NOT in group → Store pending
             await db.store_pending_onboarding(user.id, email, token)
 
+            # Create button for easy completion after joining
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("I've Joined → Complete Setup", callback_data="complete_setup")]
+            ])
+
             await update.message.reply_text(
                 f"Your email ({email}) has been verified.\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -157,10 +162,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
                 f"2. Complete verification\n"
                 f"3. You will be added to the private group\n"
-                f"4. Return to this chat\n"
-                f"5. Type /start\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"You MUST type /start after joining."
+                f"4. Return here and tap the button below\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━",
+                reply_markup=keyboard
             )
         return
 
@@ -199,6 +203,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         else:
             # User has pending but still not in group → Remind them
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("I've Joined → Complete Setup", callback_data="complete_setup")]
+            ])
+
             await update.message.reply_text(
                 f"Your email is verified, but you have not joined the Covenant yet.\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -207,10 +215,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
                 f"2. Complete verification\n"
                 f"3. You will be added to the private group\n"
-                f"4. Return to this chat\n"
-                f"5. Type /start\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"You MUST type /start after joining."
+                f"4. Return here and tap the button below\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━",
+                reply_markup=keyboard
             )
         return
 
@@ -971,6 +978,80 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle inline keyboard button callbacks"""
     query = update.callback_query
+    user = query.from_user
+
+    # Handle "Complete Setup" button - user clicked after joining Covenant
+    if query.data == "complete_setup":
+        await query.answer()
+
+        # Check if user already exists
+        existing_user = await db.get_user_by_telegram_id(user.id)
+        if existing_user:
+            await query.edit_message_text(
+                f"You're already set up!\n\n"
+                f"Type /claim to get your daily video."
+            )
+            return
+
+        # Check group membership
+        is_covenant_member = await check_covenant_membership(user.id, context)
+
+        # Get pending onboarding data
+        pending = await db.get_pending_onboarding(user.id)
+
+        if not pending:
+            await query.edit_message_text(
+                f"Session expired.\n\n"
+                f"Please start over at https://yntoyg.com"
+            )
+            return
+
+        if is_covenant_member:
+            # User completed group join → Finish onboarding
+            email = pending["email"]
+            original_token = pending["original_token"]
+
+            await db.create_user(email, user.id)
+            await db.consume_magic_token(original_token)
+            await db.delete_pending_onboarding(user.id)
+
+            # Generate dashboard auth token
+            dashboard_token = await db.generate_dashboard_token(email)
+            dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
+
+            await query.edit_message_text(
+                f"Welcome to the Covenant.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"ACCOUNT ACTIVATED\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"Your email ({email}) is now linked.\n\n"
+                f"VIEW YOUR DASHBOARD\n"
+                f"▸ {dashboard_url}\n\n"
+                f"AVAILABLE COMMANDS\n\n"
+                f"▸ /claim - Get your daily video (+10 points)\n"
+                f"▸ /submit <url> - Submit your repost (+25 points)\n"
+                f"▸ /wallet <address> - Connect Solana wallet\n"
+                f"▸ /mystats - View your stats\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"From YN to YG."
+            )
+        else:
+            # Still not in group
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("I've Joined → Complete Setup", callback_data="complete_setup")]
+            ])
+
+            await query.edit_message_text(
+                f"You haven't joined the Covenant yet.\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
+                f"2. Complete the Safeguard verification\n"
+                f"3. Return and tap the button again\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━",
+                reply_markup=keyboard
+            )
+        return
+
     await query.answer()
 
     # REMOVED: connect_ callback handling (social username collection removed)
