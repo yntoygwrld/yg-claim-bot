@@ -209,20 +209,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
 
             await update.message.reply_text(
-                f"Welcome to the Covenant.\n"
+                f"🎉 <b>Welcome to the Covenant</b>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"ACCOUNT ACTIVATED\n"
+                f"<b>ACCOUNT ACTIVATED</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"Your email ({email}) is now linked.\n\n"
-                f"VIEW YOUR DASHBOARD\n"
+                f"Your email <i>{email}</i> is now linked.\n\n"
+                f"<b>📊 VIEW YOUR DASHBOARD</b>\n"
                 f"▸ {dashboard_url}\n\n"
-                f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
-                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
-                f"▸ /wallet <address> - Connect Solana wallet\n"
-                f"▸ /mystats - View your stats\n\n"
+                f"<b>⚡ AVAILABLE COMMANDS</b>\n\n"
+                f"▸ /claim — <i>Get your daily video (+{config.POINTS_CLAIM} pts)</i>\n\n"
+                f"▸ Submit links — <i>+{config.POINTS_SUBMIT} pts each platform</i>\n\n"
+                f"▸ /wallet — <i>Connect Solana wallet</i>\n\n"
+                f"▸ /mystats — <i>View your stats</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"From YN to YG."
+                f"<b>From YN to YG.</b>",
+                parse_mode="HTML"
             )
         else:
             # User has valid token but NOT in group → Store pending
@@ -234,17 +235,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ])
 
             await update.message.reply_text(
-                f"Your email ({email}) has been verified.\n"
+                f"✅ <b>Email Verified</b>\n"
+                f"<i>{email}</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"NEXT STEP: JOIN THE COVENANT\n"
+                f"<b>NEXT STEP: JOIN THE COVENANT</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
-                f"2. Complete verification\n"
-                f"3. You will be added to the private group\n\n"
-                f"✨ I'll detect when you join and notify you!\n"
-                f"Or return here: {config.BOT_LINK}\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━",
-                reply_markup=keyboard
+                f"<b>1.</b>  Click here: {config.YNTOYG_PORTAL_LINK}\n\n"
+                f"<b>2.</b>  Complete the verification\n\n"
+                f"<b>3.</b>  You'll be added to the private group\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"✨ <i>I'll detect when you join and notify you automatically!</i>\n\n"
+                f"Or return here: {config.BOT_LINK}",
+                reply_markup=keyboard,
+                parse_mode="HTML"
             )
         return
 
@@ -266,20 +269,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
 
             await update.message.reply_text(
-                f"Welcome to the Covenant.\n"
+                f"🎉 <b>Welcome to the Covenant</b>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"ACCOUNT ACTIVATED\n"
+                f"<b>ACCOUNT ACTIVATED</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"Your email ({email}) is now linked.\n\n"
-                f"VIEW YOUR DASHBOARD\n"
+                f"Your email <i>{email}</i> is now linked.\n\n"
+                f"<b>📊 VIEW YOUR DASHBOARD</b>\n"
                 f"▸ {dashboard_url}\n\n"
-                f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
-                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
-                f"▸ /wallet <address> - Connect Solana wallet\n"
-                f"▸ /mystats - View your stats\n\n"
+                f"<b>⚡ AVAILABLE COMMANDS</b>\n\n"
+                f"▸ /claim — <i>Get your daily video (+{config.POINTS_CLAIM} pts)</i>\n\n"
+                f"▸ Submit links — <i>+{config.POINTS_SUBMIT} pts each platform</i>\n\n"
+                f"▸ /wallet — <i>Connect Solana wallet</i>\n\n"
+                f"▸ /mystats — <i>View your stats</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"From YN to YG."
+                f"<b>From YN to YG.</b>",
+                parse_mode="HTML"
             )
         else:
             # User has pending but still not in group → Remind them
@@ -288,47 +292,51 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ])
 
             await update.message.reply_text(
-                f"Your email is verified, but you have not joined the Covenant yet.\n"
+                f"⏳ <b>Almost There!</b>\n"
+                f"<i>Your email is verified, but you haven't joined the Covenant yet.</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"COMPLETE THESE STEPS\n"
+                f"<b>COMPLETE THESE STEPS</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
-                f"2. Complete verification\n"
-                f"3. You will be added to the private group\n\n"
-                f"✨ I'll detect when you join and notify you!\n"
-                f"Or return here: {config.BOT_LINK}\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━",
-                reply_markup=keyboard
+                f"<b>1.</b>  Click here: {config.YNTOYG_PORTAL_LINK}\n\n"
+                f"<b>2.</b>  Complete the verification\n\n"
+                f"<b>3.</b>  You'll be added to the private group\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"✨ <i>I'll detect when you join and notify you automatically!</i>\n\n"
+                f"Or return here: {config.BOT_LINK}",
+                reply_markup=keyboard,
+                parse_mode="HTML"
             )
         return
 
     # STEP 5: No token, no pending, not in group → Direct to website
     if not is_covenant_member:
         await update.message.reply_text(
-            f"$YNTOYG\n"
+            f"<b>$YNTOYG</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"GET STARTED\n"
+            f"<b>GET STARTED</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"1. Go to https://yntoyg.com\n"
-            f"2. Enter your email\n"
-            f"3. Check your inbox for the magic link\n"
-            f"4. Click the link to return here\n\n"
+            f"<b>1.</b>  Go to https://yntoyg.com\n\n"
+            f"<b>2.</b>  Enter your email\n\n"
+            f"<b>3.</b>  Check your inbox for the magic link\n\n"
+            f"<b>4.</b>  Click the link to return here\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"From YN to YG."
+            f"<b>From YN to YG.</b>",
+            parse_mode="HTML"
         )
     else:
         # In group but no token/pending → Sign up on website
         await update.message.reply_text(
-            f"$YNTOYG\n"
+            f"<b>$YNTOYG</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"SIGN UP REQUIRED\n"
+            f"<b>SIGN UP REQUIRED</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"You are in the Covenant but have not linked your account.\n\n"
-            f"1. Go to https://yntoyg.com\n"
-            f"2. Enter your email\n"
-            f"3. Click the magic link in your inbox\n\n"
+            f"<i>You are in the Covenant but haven't linked your account yet.</i>\n\n"
+            f"<b>1.</b>  Go to https://yntoyg.com\n\n"
+            f"<b>2.</b>  Enter your email\n\n"
+            f"<b>3.</b>  Click the magic link in your inbox\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"From YN to YG."
+            f"<b>From YN to YG.</b>",
+            parse_mode="HTML"
         )
 
 
@@ -1573,22 +1581,23 @@ async def handle_chat_member_update(update: Update, context: ContextTypes.DEFAUL
         await context.bot.send_message(
             chat_id=user.id,
             text=(
-                f"✅ Welcome to the Covenant!\n"
+                f"🎉 <b>Welcome to the Covenant!</b>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"ACCOUNT ACTIVATED\n"
+                f"<b>ACCOUNT ACTIVATED</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"We detected you joined the group.\n"
-                f"Your email ({email}) is now linked.\n\n"
-                f"VIEW YOUR DASHBOARD\n"
+                f"<i>We detected you joined the group.</i>\n"
+                f"Your email <i>{email}</i> is now linked.\n\n"
+                f"<b>📊 VIEW YOUR DASHBOARD</b>\n"
                 f"▸ {dashboard_url}\n\n"
-                f"START EARNING\n"
-                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
-                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
-                f"▸ /wallet <address> - Connect Solana wallet\n"
-                f"▸ /mystats - View your stats\n\n"
+                f"<b>⚡ START EARNING</b>\n\n"
+                f"▸ /claim — <i>Get your daily video (+{config.POINTS_CLAIM} pts)</i>\n\n"
+                f"▸ Submit links — <i>+{config.POINTS_SUBMIT} pts each platform</i>\n\n"
+                f"▸ /wallet — <i>Connect Solana wallet</i>\n\n"
+                f"▸ /mystats — <i>View your stats</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"From YN to YG."
-            )
+                f"<b>From YN to YG.</b>"
+            ),
+            parse_mode="HTML"
         )
         logger.info(f"Auto-completed onboarding for user {user.id} via group join detection")
 
