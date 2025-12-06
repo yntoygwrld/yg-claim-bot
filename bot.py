@@ -238,14 +238,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"✅ <b>Email Verified</b>\n"
                 f"<i>{email}</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"<b>NEXT STEP: JOIN THE COVENANT</b>\n"
+                f"<b>FINAL STEP: JOIN THE COVENANT</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>1.</b>  Click here: {config.YNTOYG_PORTAL_LINK}\n\n"
-                f"<b>2.</b>  Complete the verification\n\n"
-                f"<b>3.</b>  You'll be added to the private group\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"✨ <i>I'll detect when you join and notify you automatically!</i>\n\n"
-                f"Or return here: {config.BOT_LINK}",
+                f"👉 <b>Tap here:</b> {config.YNTOYG_PORTAL_LINK}\n\n"
+                f"Complete the verification to join.\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"📲 <b>THEN COME BACK TO THIS CHAT</b>\n"
+                f"<i>I'll message you here when you're in!</i>",
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
@@ -293,16 +292,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
             await update.message.reply_text(
                 f"⏳ <b>Almost There!</b>\n"
-                f"<i>Your email is verified, but you haven't joined the Covenant yet.</i>\n\n"
+                f"<i>Email verified — just need to join the group!</i>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"<b>COMPLETE THESE STEPS</b>\n"
+                f"<b>JOIN THE COVENANT</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>1.</b>  Click here: {config.YNTOYG_PORTAL_LINK}\n\n"
-                f"<b>2.</b>  Complete the verification\n\n"
-                f"<b>3.</b>  You'll be added to the private group\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"✨ <i>I'll detect when you join and notify you automatically!</i>\n\n"
-                f"Or return here: {config.BOT_LINK}",
+                f"👉 <b>Tap here:</b> {config.YNTOYG_PORTAL_LINK}\n\n"
+                f"Complete the verification to join.\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"📲 <b>THEN COME BACK TO THIS CHAT</b>\n"
+                f"<i>I'll message you here when you're in!</i>",
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
