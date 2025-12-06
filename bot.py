@@ -309,7 +309,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # STEP 5: No token, no pending, not in group → Direct to covenant signup
     if not is_covenant_member:
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join the Covenant →", url="https://yntoyg.com/covenant/login")]
+            [InlineKeyboardButton("Join the Covenant →", url="https://yntoyg.com/covenant/join")]
         ])
 
         await update.message.reply_text(
@@ -329,7 +329,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         # In group but no token/pending → Sign up on website
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Link Your Account →", url="https://yntoyg.com/covenant/login")]
+            [InlineKeyboardButton("Link Your Account →", url="https://yntoyg.com/covenant/join")]
         ])
 
         await update.message.reply_text(
