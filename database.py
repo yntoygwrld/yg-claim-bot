@@ -134,8 +134,8 @@ async def create_claim(user_id: str, video_id: str, telegram_id: int) -> Dict:
     # Update user stats
     supabase.rpc("increment_user_claims", {"user_id_param": user_id}).execute()
 
-    # Points are awarded ONLY on submit, not on claim
-    # This ensures users actually post and share links
+    # Award points for claiming (+10)
+    await increment_points(telegram_id, 10)
 
     return result.data[0]
 
@@ -151,8 +151,8 @@ async def create_repost(user_id: str, video_id: str, platform: str, post_url: st
         "post_url": post_url,
     }).execute()
 
-    # Award points for submitting (+25)
-    await increment_points(telegram_id, 25)
+    # Award points for submitting (+15)
+    await increment_points(telegram_id, 15)
 
     return result.data[0]
 
