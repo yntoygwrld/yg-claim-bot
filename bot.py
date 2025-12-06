@@ -306,34 +306,44 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         return
 
-    # STEP 5: No token, no pending, not in group → Direct to website
+    # STEP 5: No token, no pending, not in group → Direct to covenant signup
     if not is_covenant_member:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join the Covenant →", url="https://yntoyg.com/covenant/login")]
+        ])
+
         await update.message.reply_text(
             f"<b>$YNTOYG</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"<b>GET STARTED</b>\n"
+            f"<b>JOIN THE COVENANT</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<b>1.</b>  Go to https://yntoyg.com\n\n"
+            f"<b>1.</b>  Tap the button below\n\n"
             f"<b>2.</b>  Enter your email\n\n"
-            f"<b>3.</b>  Check your inbox for the magic link\n\n"
-            f"<b>4.</b>  Click the link to return here\n\n"
+            f"<b>3.</b>  Check inbox for magic link\n\n"
+            f"<b>4.</b>  Click it to return here\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"<b>From YN to YG.</b>",
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     else:
         # In group but no token/pending → Sign up on website
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Link Your Account →", url="https://yntoyg.com/covenant/login")]
+        ])
+
         await update.message.reply_text(
             f"<b>$YNTOYG</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"<b>SIGN UP REQUIRED</b>\n"
+            f"<b>LINK YOUR ACCOUNT</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<i>You are in the Covenant but haven't linked your account yet.</i>\n\n"
-            f"<b>1.</b>  Go to https://yntoyg.com\n\n"
+            f"<i>You're in the Covenant but haven't linked your account yet.</i>\n\n"
+            f"<b>1.</b>  Tap the button below\n\n"
             f"<b>2.</b>  Enter your email\n\n"
             f"<b>3.</b>  Click the magic link in your inbox\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"<b>From YN to YG.</b>",
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
 
