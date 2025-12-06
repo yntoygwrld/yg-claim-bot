@@ -97,14 +97,23 @@ async def verify_magic_token(token: str) -> Optional[str]:
 # ============ VIDEO OPERATIONS ============
 
 async def get_random_active_video() -> Optional[Dict]:
-    """Get a random active video from the pool"""
+    """Get a random active video from the pool - ROTATING selection.
+    Picks from videos with the LOWEST times_claimed to ensure even distribution."""
     result = supabase.table("videos").select("*").eq("is_active", True).execute()
 
     if not result.data:
         return None
 
     import random
-    video = random.choice(result.data)
+
+    # Find the minimum times_claimed value
+    min_claims = min(v["times_claimed"] for v in result.data)
+
+    # Filter to only videos with the lowest claim count
+    least_claimed = [v for v in result.data if v["times_claimed"] == min_claims]
+
+    # Random choice among the least claimed (for variety when tied)
+    video = random.choice(least_claimed)
 
     # Increment times_claimed
     supabase.table("videos").update({
