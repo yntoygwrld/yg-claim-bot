@@ -521,20 +521,33 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Store video_id for later /submit
     context.user_data['last_claimed_video_id'] = video["id"]
 
-    # Send initial message with save instructions
+    # Send initial message with detailed platform instructions
     await update.message.reply_text(
         f"🎬 Your daily video is ready! (+{config.POINTS_CLAIM} pts)\n\n"
         f"━━━ HOW TO POST ━━━\n\n"
-        f"1️⃣ SAVE the video below to your device\n"
-        f"2️⃣ POST it on your socials\n"
-        f"3️⃣ TAP a button below to submit your link\n\n"
-        f"━━━ PLATFORM TIPS ━━━\n\n"
-        f"📱 INSTAGRAM: Post as REEL\n"
-        f"   • Natural caption, no crypto hype\n\n"
-        f"🎵 TIKTOK: Upload normally\n"
-        f"   • Hook viewers in first 3 sec\n\n"
-        f"🐦 TWITTER/X: Crypto-friendly!\n"
-        f"   • Can mention $YNTOYG\n\n"
+        f"1️⃣ SAVE the video below\n"
+        f"2️⃣ POST on your socials\n"
+        f"3️⃣ TAP button to submit link\n\n"
+        f"━━━ POSTING GUIDE BY PLATFORM ━━━\n\n"
+        f"📱 INSTAGRAM (strict on crypto)\n"
+        f"✅ Post as REEL ← this counts!\n"
+        f"✅ Add to Stories 2-4 hrs later\n"
+        f"✅ Caption: \"vibes\" \"check this\"\n"
+        f"✅ 3-5 hashtags IN the caption\n"
+        f"❌ NO: \"profit\" \"investment\" \"moon\"\n"
+        f"❌ NO: price talk or promises\n\n"
+        f"🎵 TIKTOK (strict on crypto)\n"
+        f"✅ Upload normally, hook in 3 sec\n"
+        f"✅ Best times: Tue-Thu, 2-5 PM\n"
+        f"✅ Educational/fun angle works\n"
+        f"❌ NO: financial claims or hype\n"
+        f"❌ NO: \"buy\" \"invest\" \"100x\"\n\n"
+        f"🐦 TWITTER/X (crypto friendly!)\n"
+        f"✅ Upload native video\n"
+        f"✅ CAN mention $YNTOYG, crypto\n"
+        f"✅ Quote-tweet for extra reach\n"
+        f"✅ Hype and community vibes OK\n"
+        f"✅ Tag other crypto accounts\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
