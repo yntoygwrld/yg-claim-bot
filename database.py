@@ -74,6 +74,18 @@ async def increment_points(telegram_id: int, points: int) -> bool:
 
 # ============ TOKEN OPERATIONS ============
 
+def parse_timestamp(ts: str) -> datetime:
+    """Parse timestamp from Supabase, handling various formats (+00, +00:00, Z)"""
+    if ts.endswith('Z'):
+        ts = ts[:-1] + '+00:00'
+    elif ts.endswith('+00') or ts.endswith('-00'):
+        ts = ts + ':00'
+    elif len(ts) > 3 and ts[-3] in ['+', '-'] and ts[-2:].isdigit():
+        # Handle +HH or -HH format (e.g., +05, -08)
+        ts = ts + ':00'
+    return datetime.fromisoformat(ts)
+
+
 async def verify_magic_token(token: str) -> Optional[str]:
     """Verify magic link token and return email if valid"""
     result = supabase.table("email_tokens").select("*").eq("token", token).eq("used", False).execute()
@@ -84,7 +96,7 @@ async def verify_magic_token(token: str) -> Optional[str]:
     token_data = result.data[0]
 
     # Check expiration
-    expires_at = datetime.fromisoformat(token_data["expires_at"].replace("Z", "+00:00"))
+    expires_at = parse_timestamp(token_data["expires_at"])
     if datetime.utcnow() > expires_at.replace(tzinfo=None):
         return None
 
@@ -399,7 +411,7 @@ async def verify_magic_token_without_consuming(token: str) -> Optional[str]:
     token_data = result.data[0]
 
     # Check expiration
-    expires_at = datetime.fromisoformat(token_data["expires_at"].replace("Z", "+00:00"))
+    expires_at = parse_timestamp(token_data["expires_at"])
     if datetime.utcnow() > expires_at.replace(tzinfo=None):
         return None
 
