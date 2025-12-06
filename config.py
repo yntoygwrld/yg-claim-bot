@@ -21,22 +21,30 @@ CLAIM_COOLDOWN_HOURS = 24
 TOKEN_EXPIRY_HOURS = 24
 MAX_REPOSTS_PER_DAY = 10
 
-# Points Algorithm
-BASE_POINTS = 10
-VIEW_MULTIPLIER = 0.01  # 1 point per 100 views
+# Points Configuration
+POINTS_CLAIM = 5       # Points for claiming daily video
+POINTS_SUBMIT = 10     # Points per platform submission
+VIEW_MULTIPLIER = 0.01  # 1 point per 100 views (for future use)
 
 # Platforms
 SUPPORTED_PLATFORMS = ["tiktok", "instagram", "twitter"]
 
-# URL Patterns - More permissive to accept all common URL formats
-# We collect URLs now, manual audit happens during airdrops
+# Platform Display Names (for UI)
+PLATFORM_NAMES = {
+    "tiktok": "TikTok",
+    "instagram": "Instagram",
+    "twitter": "Twitter/X",
+}
+
+# URL Patterns - Research-based regex for accurate detection
+# Sources: Stack Overflow, regex101.com, codex.so
 URL_PATTERNS = {
-    # TikTok: standard, www, short URLs (vm.tiktok, vt.tiktok)
-    "tiktok": r"(www\.)?(tiktok\.com/@[\w\.]+/video/\d+|(vm|vt)\.tiktok\.com/[\w]+)",
-    # Instagram: posts, reels, with www and query params
-    "instagram": r"(www\.)?instagram\.com/(p|reel|reels)/[\w-]+",
-    # Twitter/X: standard, www, mobile
-    "twitter": r"(www\.|mobile\.)?(twitter|x)\.com/\w+/status/\d+",
+    # TikTok: Full URLs, short URLs (vm.tiktok, vt.tiktok), mobile
+    "tiktok": r"(?:https?://)?(?:www\.|m\.|vm\.|vt\.)?tiktok\.com/(?:@[\w.-]+/video/\d+|[\w]+/?)",
+    # Instagram: Posts (/p/), Reels (/reel/, /reels/)
+    "instagram": r"(?:https?://)?(?:www\.)?instagram\.com/(?:p|reel|reels)/[\w-]+/?",
+    # Twitter/X: Both domains, video suffix supported
+    "twitter": r"(?:https?://)?(?:www\.|mobile\.)?(?:twitter|x)\.com/\w+/status(?:es)?/\d+(?:/video/\d+)?/?",
 }
 
 # YNTOYG Community

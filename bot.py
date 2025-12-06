@@ -34,6 +34,34 @@ def generate_random_filename() -> str:
     return f"{prefix}{number}.mp4"
 
 
+def get_submit_buttons(submitted_platforms: list = None) -> InlineKeyboardMarkup:
+    """Create inline keyboard with submit buttons for platforms not yet submitted."""
+    if submitted_platforms is None:
+        submitted_platforms = []
+
+    buttons = []
+    for platform in config.SUPPORTED_PLATFORMS:
+        if platform not in submitted_platforms:
+            name = config.PLATFORM_NAMES.get(platform, platform.title())
+            buttons.append([
+                InlineKeyboardButton(
+                    f"Submit {name} Link  +{config.POINTS_SUBMIT} PTS",
+                    callback_data=f"submit_{platform}"
+                )
+            ])
+
+    return InlineKeyboardMarkup(buttons) if buttons else None
+
+
+def get_remaining_platforms_text(submitted_platforms: list) -> str:
+    """Get text describing remaining platforms to submit to."""
+    remaining = [p for p in config.SUPPORTED_PLATFORMS if p not in submitted_platforms]
+    if not remaining:
+        return ""
+    names = [config.PLATFORM_NAMES.get(p, p.title()) for p in remaining]
+    return ", ".join(names)
+
+
 # ============ GROUP MEMBERSHIP CHECK ============
 
 async def check_covenant_membership(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -188,8 +216,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video\n"
-                f"▸ /submit <url> - Submit your repost (+15 points)\n"
+                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
+                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -244,8 +272,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video\n"
-                f"▸ /submit <url> - Submit your repost (+15 points)\n"
+                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
+                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -446,11 +474,27 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Check if already claimed today
     if await db.has_claimed_today(db_user["id"]):
-        await update.message.reply_text(
-            "⏰ You've already claimed today's video!\n\n"
-            "Come back tomorrow for a fresh one.\n"
-            "In the meantime, post your video and use /submit <link> to earn points!"
-        )
+        # Get today's claim to check submissions
+        todays_claim = await db.get_todays_claim(db_user["id"])
+        video_id = todays_claim.get("video_id") if todays_claim else None
+        submitted = await db.get_user_submissions_for_video(db_user["id"], video_id) if video_id else []
+
+        # Check if there are remaining platforms
+        remaining = [p for p in config.SUPPORTED_PLATFORMS if p not in submitted]
+
+        if remaining:
+            keyboard = get_submit_buttons(submitted)
+            await update.message.reply_text(
+                f"You've already claimed today's video!\n\n"
+                f"Earn more points by submitting your post links:\n\n"
+                f"Each platform = +{config.POINTS_SUBMIT} points",
+                reply_markup=keyboard
+            )
+        else:
+            await update.message.reply_text(
+                f"You've claimed today's video and submitted to all platforms!\n\n"
+                f"Come back tomorrow for a fresh video."
+            )
         return
 
     # Get random video
@@ -468,32 +512,21 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Store video_id for later /submit
     context.user_data['last_claimed_video_id'] = video["id"]
 
-    # Send initial message with posting tips
+    # Send initial message with save instructions
     await update.message.reply_text(
-        f"🎬 Here's your daily video, Gentleman!\n\n"
-        f"📹 {video.get('title', 'YG Content')}\n\n"
-        f"━━━ POSTING GUIDE BY PLATFORM ━━━\n\n"
-        f"📱 INSTAGRAM (strict on crypto)\n"
-        f"✅ Post as REEL ← this counts!\n"
-        f"✅ Add to Stories 2-4 hrs later\n"
-        f"✅ Caption: \"vibes\" \"check this\"\n"
-        f"✅ 3-5 hashtags IN the caption\n"
-        f"❌ NO: \"profit\" \"investment\" \"moon\"\n"
-        f"❌ NO: price talk or promises\n\n"
-        f"🎵 TIKTOK (strict on crypto)\n"
-        f"✅ Upload normally, hook in 3 sec\n"
-        f"✅ Best times: Tue-Thu, 2-5 PM\n"
-        f"✅ Educational/fun angle works\n"
-        f"❌ NO: financial claims or hype\n"
-        f"❌ NO: \"buy\" \"invest\" \"100x\"\n\n"
-        f"🐦 TWITTER/X (crypto friendly!)\n"
-        f"✅ Upload native video\n"
-        f"✅ CAN mention $YNTOYG, crypto\n"
-        f"✅ Quote-tweet for extra reach\n"
-        f"✅ Hype and community vibes OK\n"
-        f"✅ Tag other crypto accounts\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💰 Claim: +10 pts | Submit link: +15 pts"
+        f"🎬 Your daily video is ready! (+{config.POINTS_CLAIM} pts)\n\n"
+        f"━━━ HOW TO POST ━━━\n\n"
+        f"1️⃣ SAVE the video below to your device\n"
+        f"2️⃣ POST it on your socials\n"
+        f"3️⃣ TAP a button below to submit your link\n\n"
+        f"━━━ PLATFORM TIPS ━━━\n\n"
+        f"📱 INSTAGRAM: Post as REEL\n"
+        f"   • Natural caption, no crypto hype\n\n"
+        f"🎵 TIKTOK: Upload normally\n"
+        f"   • Hook viewers in first 3 sec\n\n"
+        f"🐦 TWITTER/X: Crypto-friendly!\n"
+        f"   • Can mention $YNTOYG\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
     # Prepare video - prioritize telegram_file_id
@@ -521,7 +554,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await update.message.reply_document(
                         document=f,
                         filename=generate_random_filename(),
-                        caption="📲 Post as REEL on Instagram! Then /submit your link"
+                        caption="📥 Save this video to your device, then post it!"
                     )
 
                 # Cleanup
@@ -535,7 +568,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 # Fallback: send original file
                 await update.message.reply_document(
                     document=file_id,
-                    caption="📲 Post as REEL on Instagram! Then /submit your link"
+                    caption="📥 Save this video to your device, then post it!"
                 )
                 if temp_path.exists():
                     temp_path.unlink()
@@ -546,8 +579,16 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Fallback to direct file_id
             await update.message.reply_document(
                 document=file_id,
-                caption="📲 Post as REEL on Instagram! Then /submit your link"
+                caption="📥 Save this video to your device, then post it!"
             )
+
+        # Send submit buttons after video
+        keyboard = get_submit_buttons()
+        await update.message.reply_text(
+            f"Posted the video? Submit your link:\n\n"
+            f"Each platform = +{config.POINTS_SUBMIT} points",
+            reply_markup=keyboard
+        )
 
     elif video_url:
         # Legacy: URL-based video (uniquify from URL)
@@ -559,7 +600,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await update.message.reply_document(
                         document=f,
                         filename=generate_random_filename(),
-                        caption="📲 Post as REEL on Instagram! Then /submit your link"
+                        caption="📥 Save this video to your device, then post it!"
                     )
                 uniquifier = get_uniquifier()
                 await uniquifier.cleanup(result_path)
@@ -567,14 +608,22 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 # Fallback to direct URL
                 await update.message.reply_document(
                     document=video_url,
-                    caption="📲 Post as REEL on Instagram! Then /submit your link"
+                    caption="📥 Save this video to your device, then post it!"
                 )
         except Exception as e:
             logger.error(f"Error with URL video: {e}")
             await update.message.reply_document(
                 document=video_url,
-                caption="📲 Post as REEL on Instagram! Then /submit your link"
+                caption="📥 Save this video to your device, then post it!"
             )
+
+        # Send submit buttons after video
+        keyboard = get_submit_buttons()
+        await update.message.reply_text(
+            f"Posted the video? Submit your link:\n\n"
+            f"Each platform = +{config.POINTS_SUBMIT} points",
+            reply_markup=keyboard
+        )
     else:
         await update.message.reply_text(
             "⚠️ Video file not available. Please contact admin."
@@ -623,15 +672,45 @@ async def submit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Get the most recent video claimed by user
     video_id = context.user_data.get('last_claimed_video_id')
 
+    # Check if already submitted to this platform for this video
+    if video_id:
+        submitted = await db.get_user_submissions_for_video(db_user["id"], video_id)
+        if platform in submitted:
+            await update.message.reply_text(
+                f"❌ You already submitted a {config.PLATFORM_NAMES.get(platform, platform.title())} link for today's video!\n\n"
+                f"Try a different platform to earn more points."
+            )
+            return
+
     # Create repost record (with telegram_id for points)
     await db.create_repost(db_user["id"], video_id, platform, post_url, user.id)
 
-    await update.message.reply_text(
-        f"✅ Repost submitted! +15 points\n\n"
-        f"Platform: {platform.title()}\n"
-        f"URL: {post_url}\n\n"
-        f"Check /mystats to see your updated score!"
-    )
+    # Get remaining platforms for "submit more" prompt
+    submitted_now = await db.get_user_submissions_for_video(db_user["id"], video_id) if video_id else [platform]
+    remaining = [p for p in config.SUPPORTED_PLATFORMS if p not in submitted_now]
+
+    platform_name = config.PLATFORM_NAMES.get(platform, platform.title())
+
+    if remaining:
+        keyboard = get_submit_buttons(submitted_now)
+        await update.message.reply_text(
+            f"✅ {platform_name} submitted! +{config.POINTS_SUBMIT} points\n\n"
+            f"Want to earn more? Post to other platforms:",
+            reply_markup=keyboard
+        )
+    else:
+        # All platforms submitted!
+        total = config.POINTS_CLAIM + (config.POINTS_SUBMIT * len(config.SUPPORTED_PLATFORMS))
+        await update.message.reply_text(
+            f"✅ {platform_name} submitted! +{config.POINTS_SUBMIT} points\n\n"
+            f"🎉 Amazing! You've posted to all platforms!\n\n"
+            f"Today's total: +{total} points\n"
+            f"• Claim: +{config.POINTS_CLAIM} pts\n"
+            f"• TikTok: +{config.POINTS_SUBMIT} pts\n"
+            f"• Instagram: +{config.POINTS_SUBMIT} pts\n"
+            f"• Twitter/X: +{config.POINTS_SUBMIT} pts\n\n"
+            f"See you tomorrow for another video!"
+        )
 
 
 async def mystats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -649,12 +728,17 @@ async def mystats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     claims = db_user.get('total_claims', 0)
     streak = db_user.get('streak_count', 0)
 
+    max_daily = config.POINTS_CLAIM + (config.POINTS_SUBMIT * len(config.SUPPORTED_PLATFORMS))
+
     await update.message.reply_text(
         f"📊 Your Stats, Gentleman\n\n"
         f"⭐ Points: {points}\n"
         f"📹 Videos Claimed: {claims}\n"
         f"🔥 Streak: {streak} days\n\n"
-        f"Claim videos for +10 pts, submit links for +15 pts!\n\n"
+        f"━━━ POINT SYSTEM ━━━\n"
+        f"▸ Claim video: +{config.POINTS_CLAIM} pts\n"
+        f"▸ Submit link: +{config.POINTS_SUBMIT} pts each\n"
+        f"▸ Max per day: +{max_daily} pts\n\n"
         f"Keep claiming and posting! 🏆"
     )
 
@@ -687,18 +771,22 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /help command"""
+    max_daily = config.POINTS_CLAIM + (config.POINTS_SUBMIT * len(config.SUPPORTED_PLATFORMS))
     await update.message.reply_text(
-        "🎩 $YNTOYG - How It Works\n\n"
-        "1️⃣ /start - Begin your journey\n"
-        "2️⃣ /wallet <addr> - Connect Solana wallet\n"
-        "3️⃣ /claim - Get your daily video\n"
-        "4️⃣ Post the video on TikTok/IG/Twitter\n"
-        "5️⃣ /submit <url> - Submit your link (+15 points)\n\n"
-        "📊 /mystats - View your progress\n"
-        "🏆 /leaderboard - See top performers\n\n"
-        "Claim: +10 pts | Submit: +15 pts = 25 total!\n\n"
-        "Learn more: https://yntoyg.com\n"
-        "Community: https://t.me/yntoyg"
+        f"🎩 $YNTOYG - How It Works\n\n"
+        f"1️⃣ /start - Begin your journey\n"
+        f"2️⃣ /wallet <addr> - Connect Solana wallet\n"
+        f"3️⃣ /claim - Get your daily video\n"
+        f"4️⃣ Post the video on TikTok/IG/Twitter\n"
+        f"5️⃣ Tap Submit buttons to earn points\n\n"
+        f"📊 /mystats - View your progress\n"
+        f"🏆 /leaderboard - See top performers\n\n"
+        f"━━━ POINT SYSTEM ━━━\n"
+        f"▸ Claim: +{config.POINTS_CLAIM} pts\n"
+        f"▸ Each platform: +{config.POINTS_SUBMIT} pts\n"
+        f"▸ Max daily: +{max_daily} pts!\n\n"
+        f"Learn more: https://yntoyg.com\n"
+        f"Community: https://t.me/yntoyg"
     )
 
 
@@ -1169,8 +1257,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 f"VIEW YOUR DASHBOARD\n"
                 f"▸ {dashboard_url}\n\n"
                 f"AVAILABLE COMMANDS\n\n"
-                f"▸ /claim - Get your daily video\n"
-                f"▸ /submit <url> - Submit your repost (+15 points)\n"
+                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
+                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
                 f"▸ /wallet <address> - Connect Solana wallet\n"
                 f"▸ /mystats - View your stats\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -1195,7 +1283,52 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await query.answer()
 
-    # REMOVED: connect_ callback handling (social username collection removed)
+    # Handle submit platform buttons
+    if query.data.startswith("submit_"):
+        platform = query.data.replace("submit_", "")
+
+        if platform not in config.SUPPORTED_PLATFORMS:
+            return
+
+        # Check if user exists
+        db_user = await db.get_user_by_telegram_id(user.id)
+        if not db_user:
+            await query.message.reply_text(
+                "Please complete /start first to link your account."
+            )
+            return
+
+        # Get video_id from today's claim
+        todays_claim = await db.get_todays_claim(db_user["id"])
+        if not todays_claim:
+            await query.message.reply_text(
+                "❌ No claim found for today.\n\n"
+                "Use /claim to get your daily video first!"
+            )
+            return
+
+        video_id = todays_claim.get("video_id")
+
+        # Check if already submitted to this platform
+        submitted = await db.get_user_submissions_for_video(db_user["id"], video_id)
+        platform_name = config.PLATFORM_NAMES.get(platform, platform.title())
+
+        if platform in submitted:
+            await query.message.reply_text(
+                f"❌ You already submitted a {platform_name} link for today's video!\n\n"
+                f"Try a different platform to earn more points."
+            )
+            return
+
+        # Store awaiting platform and video_id in user_data
+        context.user_data['awaiting_submit_platform'] = platform
+        context.user_data['last_claimed_video_id'] = video_id
+
+        await query.message.reply_text(
+            f"📎 Send your {platform_name} link:\n\n"
+            f"Just paste the URL of your post."
+        )
+        return
 
     if query.data.startswith("copyid_"):
         # Admin wants to copy a video ID - send it as a standalone message
@@ -1207,10 +1340,95 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle text messages"""
-    # REMOVED: Social username collection flow
-    # Plain text messages no longer need special handling
-    pass
+    """Handle text messages - URL submissions after button click"""
+    user = update.effective_user
+    text = update.message.text.strip() if update.message.text else ""
+
+    # Check if awaiting platform submission
+    awaiting_platform = context.user_data.get('awaiting_submit_platform')
+    if not awaiting_platform:
+        return
+
+    # Clear the awaiting state
+    context.user_data.pop('awaiting_submit_platform', None)
+
+    # Check if user exists
+    db_user = await db.get_user_by_telegram_id(user.id)
+    if not db_user:
+        await update.message.reply_text(
+            "Please complete /start first to link your account."
+        )
+        return
+
+    # Validate URL matches expected platform
+    platform_pattern = config.URL_PATTERNS.get(awaiting_platform)
+    platform_name = config.PLATFORM_NAMES.get(awaiting_platform, awaiting_platform.title())
+
+    if not platform_pattern or not re.search(platform_pattern, text):
+        # Check if it matches a different platform
+        detected_platform = None
+        for plat, pattern in config.URL_PATTERNS.items():
+            if re.search(pattern, text):
+                detected_platform = plat
+                break
+
+        if detected_platform:
+            detected_name = config.PLATFORM_NAMES.get(detected_platform, detected_platform.title())
+            await update.message.reply_text(
+                f"❌ That looks like a {detected_name} link, not {platform_name}.\n\n"
+                f"Please send a valid {platform_name} URL, or use the buttons to submit to a different platform."
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ Invalid URL.\n\n"
+                f"Please send a valid {platform_name} post URL.\n\n"
+                f"Example formats:\n"
+                f"• TikTok: https://tiktok.com/@user/video/123...\n"
+                f"• Instagram: https://instagram.com/reel/ABC...\n"
+                f"• Twitter: https://x.com/user/status/123..."
+            )
+        return
+
+    # Get video_id
+    video_id = context.user_data.get('last_claimed_video_id')
+
+    # Check if already submitted to this platform
+    if video_id:
+        submitted = await db.get_user_submissions_for_video(db_user["id"], video_id)
+        if awaiting_platform in submitted:
+            await update.message.reply_text(
+                f"❌ You already submitted a {platform_name} link for today's video!\n\n"
+                f"Try a different platform to earn more points."
+            )
+            return
+
+    # Create repost record
+    await db.create_repost(db_user["id"], video_id, awaiting_platform, text, user.id)
+
+    # Get remaining platforms for "submit more" prompt
+    submitted_now = await db.get_user_submissions_for_video(db_user["id"], video_id) if video_id else [awaiting_platform]
+    remaining = [p for p in config.SUPPORTED_PLATFORMS if p not in submitted_now]
+
+    if remaining:
+        keyboard = get_submit_buttons(submitted_now)
+        await update.message.reply_text(
+            f"✅ {platform_name} submitted! +{config.POINTS_SUBMIT} points\n\n"
+            f"Want to earn more? Post to other platforms:",
+            reply_markup=keyboard
+        )
+    else:
+        # All platforms submitted!
+        total = config.POINTS_CLAIM + (config.POINTS_SUBMIT * len(config.SUPPORTED_PLATFORMS))
+        await update.message.reply_text(
+            f"✅ {platform_name} submitted! +{config.POINTS_SUBMIT} points\n\n"
+            f"🎉 Amazing! You've posted to all platforms!\n\n"
+            f"Today's total: +{total} points\n"
+            f"• Claim: +{config.POINTS_CLAIM} pts\n"
+            f"• TikTok: +{config.POINTS_SUBMIT} pts\n"
+            f"• Instagram: +{config.POINTS_SUBMIT} pts\n"
+            f"• Twitter/X: +{config.POINTS_SUBMIT} pts\n\n"
+            f"See you tomorrow for another video!"
+        )
 
 
 async def handle_video_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

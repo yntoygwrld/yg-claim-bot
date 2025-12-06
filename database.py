@@ -143,8 +143,8 @@ async def create_claim(user_id: str, video_id: str, telegram_id: int) -> Dict:
     # Update user stats
     supabase.rpc("increment_user_claims", {"user_id_param": user_id}).execute()
 
-    # Award points for claiming (+10)
-    await increment_points(telegram_id, 10)
+    # Award points for claiming (+5)
+    await increment_points(telegram_id, config.POINTS_CLAIM)
 
     return result.data[0]
 
@@ -160,10 +160,29 @@ async def create_repost(user_id: str, video_id: str, platform: str, post_url: st
         "post_url": post_url,
     }).execute()
 
-    # Award points for submitting (+15)
-    await increment_points(telegram_id, 15)
+    # Award points for submitting (+10 per platform)
+    await increment_points(telegram_id, config.POINTS_SUBMIT)
 
     return result.data[0]
+
+
+async def get_user_submissions_for_video(user_id: str, video_id: str) -> List[str]:
+    """Get list of platforms user has already submitted for a specific video."""
+    if not video_id:
+        return []
+    result = supabase.table("reposts").select("platform").eq(
+        "user_id", user_id
+    ).eq("video_id", video_id).execute()
+    return [r["platform"] for r in result.data] if result.data else []
+
+
+async def get_todays_claim(user_id: str) -> Optional[Dict]:
+    """Get today's claim record for a user (if exists)."""
+    today = date.today().isoformat()
+    result = supabase.table("daily_claims").select("*").eq(
+        "user_id", user_id
+    ).eq("claim_date", today).execute()
+    return result.data[0] if result.data else None
 
 
 async def get_pending_reposts() -> List[Dict]:
