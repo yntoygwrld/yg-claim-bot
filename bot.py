@@ -5,12 +5,13 @@ import re
 import tempfile
 from pathlib import Path
 from functools import wraps
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
+    ChatMemberHandler,
     ContextTypes,
     filters,
 )
@@ -239,8 +240,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
                 f"2. Complete verification\n"
-                f"3. You will be added to the private group\n"
-                f"4. Return here and tap the button below\n\n"
+                f"3. You will be added to the private group\n\n"
+                f"✨ I'll detect when you join and notify you!\n"
+                f"Or return here: {config.BOT_LINK}\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━",
                 reply_markup=keyboard
             )
@@ -292,8 +294,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"1. Click here: {config.YNTOYG_PORTAL_LINK}\n"
                 f"2. Complete verification\n"
-                f"3. You will be added to the private group\n"
-                f"4. Return here and tap the button below\n\n"
+                f"3. You will be added to the private group\n\n"
+                f"✨ I'll detect when you join and notify you!\n"
+                f"Or return here: {config.BOT_LINK}\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━",
                 reply_markup=keyboard
             )
@@ -1506,6 +1509,93 @@ async def handle_video_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"❌ Error adding video: {str(e)}")
 
 
+# ============ CHAT MEMBER HANDLER (Auto-detect group joins) ============
+
+async def handle_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Auto-detect when users join the Covenant group.
+    If they have pending onboarding, complete it and DM them.
+    """
+    # Only process chat_member updates
+    if not update.chat_member:
+        return
+
+    chat_id = update.chat_member.chat.id
+
+    # Only care about our Covenant group
+    if chat_id != config.YNTOYG_COVENANT_GROUP_ID:
+        return
+
+    # Get old and new member status
+    old_member = update.chat_member.old_chat_member
+    new_member = update.chat_member.new_chat_member
+
+    if not new_member:
+        return
+
+    old_status = old_member.status if old_member else None
+    new_status = new_member.status
+
+    # Status values that mean "is a member"
+    member_statuses = [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]
+
+    was_member = old_status in member_statuses
+    is_member = new_status in member_statuses
+
+    # Only care about: was NOT member → IS now member (user just joined)
+    if was_member or not is_member:
+        return
+
+    user = new_member.user
+    logger.info(f"Detected new member in Covenant group: {user.id} (@{user.username})")
+
+    # Check if this user has pending onboarding
+    pending = await db.get_pending_onboarding(user.id)
+
+    if not pending:
+        logger.info(f"User {user.id} joined group but has no pending onboarding - ignoring")
+        return
+
+    # Complete their registration automatically!
+    email = pending["email"]
+    original_token = pending["original_token"]
+
+    try:
+        await db.create_user(email, user.id)
+        await db.consume_magic_token(original_token)
+        await db.delete_pending_onboarding(user.id)
+
+        # Generate dashboard token for instant website access
+        dashboard_token = await db.generate_dashboard_token(email)
+        dashboard_url = f"https://yntoyg.com/api/auth/verify?token={dashboard_token}"
+
+        # Send DM to user confirming their activation
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=(
+                f"✅ Welcome to the Covenant!\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"ACCOUNT ACTIVATED\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"We detected you joined the group.\n"
+                f"Your email ({email}) is now linked.\n\n"
+                f"VIEW YOUR DASHBOARD\n"
+                f"▸ {dashboard_url}\n\n"
+                f"START EARNING\n"
+                f"▸ /claim - Get your daily video (+{config.POINTS_CLAIM} pts)\n"
+                f"▸ Submit links (+{config.POINTS_SUBMIT} pts each)\n"
+                f"▸ /wallet <address> - Connect Solana wallet\n"
+                f"▸ /mystats - View your stats\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"From YN to YG."
+            )
+        )
+        logger.info(f"Auto-completed onboarding for user {user.id} via group join detection")
+
+    except Exception as e:
+        logger.error(f"Error auto-completing onboarding for user {user.id}: {e}")
+
+
 # ============ MAIN ============
 
 def main() -> None:
@@ -1545,6 +1635,9 @@ def main() -> None:
 
     # Add callback handler for inline keyboards
     application.add_handler(CallbackQueryHandler(button_callback))
+
+    # Add chat member handler for auto-detecting group joins
+    application.add_handler(ChatMemberHandler(handle_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
 
     # Add handlers for video uploads - supports both document AND video types
     application.add_handler(MessageHandler(filters.Document.ALL, handle_video_upload))

@@ -51,6 +51,7 @@ URL_PATTERNS = {
 YNTOYG_COVENANT_GROUP_ID = -1003372132039  # Private group: $YNTOYG Covenant
 YNTOYG_PORTAL_LINK = "https://t.me/yntoyg"  # PUBLIC portal with Safeguard verification
 YNTOYG_COVENANT_DIRECT_INVITE = "https://t.me/+6qtZGyO3cvliNmI0"  # Direct invite (admin use only, bypasses Safeguard)
+BOT_LINK = "https://t.me/yntoyg_claim_bot"  # Link to this bot for easy return
 
 # Default bot settings (stored in database for runtime changes)
 DEFAULT_BOT_SETTINGS = {
