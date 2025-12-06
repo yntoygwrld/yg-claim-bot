@@ -407,3 +407,69 @@ async def generate_dashboard_token(email: str) -> str:
     }).execute()
 
     return token
+
+
+# ============ WALLET REGISTRY OPERATIONS ============
+# NOTE: These functions prepare for post-launch token verification.
+# Currently in pre-launch mode - wallet verification not enforced yet.
+# See /mnt/x/YNTOYG/POST_LAUNCH/02_TOKEN_VERIFICATION.md for activation.
+
+async def get_wallet_by_address(wallet_address: str) -> Optional[Dict]:
+    """Check if wallet is already registered to any user.
+    Used to prevent duplicate wallet registrations."""
+    result = supabase.table("wallet_registry").select("*").eq(
+        "wallet_address", wallet_address
+    ).execute()
+    return result.data[0] if result.data else None
+
+
+async def register_wallet(
+    user_id: str,
+    telegram_id: int,
+    wallet_address: str,
+    token_balance: int = 0,
+    verified: bool = False
+) -> Dict:
+    """Register a new wallet and link to user.
+
+    Args:
+        user_id: UUID from users table
+        telegram_id: Telegram user ID
+        wallet_address: Solana wallet address
+        token_balance: Raw token balance (default 0 for pre-launch)
+        verified: Whether token holdings were verified (default False for pre-launch)
+
+    Returns:
+        Created wallet_registry record
+    """
+    # Insert into wallet_registry
+    registry_result = supabase.table("wallet_registry").insert({
+        "wallet_address": wallet_address,
+        "user_id": user_id,
+        "token_balance": token_balance,
+        "token_verified": verified,
+        "last_verified_at": datetime.utcnow().isoformat() if verified else None,
+    }).execute()
+
+    # Update user record with wallet info
+    supabase.table("users").update({
+        "wallet_address": wallet_address,
+        "wallet_verified": verified,
+        "wallet_connected_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("telegram_id", telegram_id).execute()
+
+    return registry_result.data[0] if registry_result.data else {}
+
+
+async def is_wallet_verified(telegram_id: int) -> bool:
+    """Check if user has a verified wallet connected.
+    Used for gating dashboard/leaderboard access."""
+    result = supabase.table("users").select(
+        "wallet_verified"
+    ).eq("telegram_id", telegram_id).single().execute()
+
+    if not result.data:
+        return False
+
+    return result.data.get("wallet_verified", False)

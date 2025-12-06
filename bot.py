@@ -50,6 +50,56 @@ async def check_covenant_membership(user_id: int, context: ContextTypes.DEFAULT_
         return False
 
 
+# ============ SOLANA WALLET VERIFICATION ============
+# NOTE: Pre-launch mode - token verification NOT enforced yet.
+# See /mnt/x/YNTOYG/POST_LAUNCH/02_TOKEN_VERIFICATION.md for activation.
+
+# $YNTOYG token mint address - SET AFTER LAUNCH via activation prompt
+YNTOYG_MINT_ADDRESS = None  # Will be set post-launch
+
+
+def validate_solana_address(address: str) -> bool:
+    """Validate Solana wallet address format.
+
+    Solana addresses are base58 encoded, 32-44 characters.
+    Base58 excludes: 0, O, I, l (zero, uppercase O, uppercase I, lowercase L)
+    """
+    if not address or not isinstance(address, str):
+        return False
+    # Base58 character set (no 0, O, I, l)
+    base58_pattern = r'^[1-9A-HJ-NP-Za-km-z]{32,44}$'
+    return bool(re.match(base58_pattern, address))
+
+
+async def verify_token_holdings(wallet_address: str, mint_address: str = None):
+    """Verify if wallet holds $YNTOYG tokens.
+
+    PRE-LAUNCH MODE: Always returns (True, 0) to allow wallet registration
+    without token ownership verification.
+
+    POST-LAUNCH: Will verify actual token holdings via Solana RPC.
+    See /mnt/x/YNTOYG/POST_LAUNCH/02_TOKEN_VERIFICATION.md
+
+    Args:
+        wallet_address: User's Solana wallet address
+        mint_address: Token mint address (uses YNTOYG_MINT_ADDRESS if not provided)
+
+    Returns:
+        Tuple of (holds_token: bool, balance: int)
+    """
+    mint = mint_address or YNTOYG_MINT_ADDRESS
+
+    if not mint:
+        # Pre-launch mode: Accept all wallets
+        logger.info(f"Pre-launch mode: Accepting wallet {wallet_address[:8]}... without token verification")
+        return (True, 0)
+
+    # POST-LAUNCH: This section will be activated when contract address is set
+    # See /mnt/x/YNTOYG/POST_LAUNCH/02_TOKEN_VERIFICATION.md for full implementation
+    logger.warning(f"Token verification called but mint address set - should implement RPC check")
+    return (True, 0)
+
+
 # ============ ADMIN DECORATOR ============
 
 def admin_only(func):
@@ -252,7 +302,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /wallet command to connect Solana wallet"""
+    """Handle /wallet command to connect Solana wallet.
+
+    PRE-LAUNCH: Accepts wallets without token verification.
+    POST-LAUNCH: Will verify $YNTOYG token holdings.
+    See /mnt/x/YNTOYG/POST_LAUNCH/02_TOKEN_VERIFICATION.md
+    """
     user = update.effective_user
     args = context.args
 
@@ -264,28 +319,99 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    # Check if wallet already connected (wallets cannot be changed)
+    if db_user.get('wallet_address'):
+        short_addr = f"{db_user['wallet_address'][:8]}...{db_user['wallet_address'][-4:]}"
+        await update.message.reply_text(
+            f"Wallet Already Connected\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"Your wallet: {short_addr}\n\n"
+            f"Wallets cannot be changed once connected."
+        )
+        return
+
+    # No address provided - show instructions
     if not args or len(args) == 0:
         await update.message.reply_text(
-            "Usage: /wallet <solana_address>\n\n"
-            "Example: /wallet 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+            "Connect Your Wallet\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "To participate in the Gentleman's System:\n\n"
+            "I. You need a Solana wallet\n"
+            "   (Phantom, Solflare, Backpack)\n\n"
+            "II. One wallet = One account\n"
+            "   No exceptions\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "TO CONNECT:\n"
+            "/wallet YourSolanaAddressHere\n\n"
+            "Example:\n"
+            "/wallet 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU\n\n"
+            "━━━━━━━━━━━━━━━━━━━━"
         )
         return
 
-    wallet_address = args[0]
+    wallet_address = args[0].strip()
 
-    # Basic Solana address validation (32-44 characters, base58)
-    if not re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', wallet_address):
+    # Validate Solana address format using helper
+    if not validate_solana_address(wallet_address):
         await update.message.reply_text(
-            "❌ Invalid Solana wallet address.\n"
-            "Please provide a valid address."
+            "❌ Invalid Address\n\n"
+            "That doesn't look like a valid Solana wallet address.\n\n"
+            "Solana addresses are 32-44 characters using base58 encoding."
         )
         return
 
-    await db.update_user_wallet(user.id, wallet_address)
+    # Check if wallet already used by another account
+    existing_wallet = await db.get_wallet_by_address(wallet_address)
+    if existing_wallet:
+        await update.message.reply_text(
+            "❌ Wallet Already Linked\n\n"
+            "This wallet is connected to another account.\n\n"
+            "Each wallet may only be linked once.\n"
+            "The Covenant does not tolerate duplicity."
+        )
+        return
+
+    # PRE-LAUNCH: Verify token holdings (currently returns True, 0)
+    # POST-LAUNCH: This will actually check Solana RPC for $YNTOYG holdings
+    holds_token, balance = await verify_token_holdings(wallet_address)
+
+    # NOTE: Post-launch, this check will reject users without tokens
+    # For now, holds_token is always True (pre-launch mode)
+    if not holds_token:
+        await update.message.reply_text(
+            "❌ No $YNTOYG Detected\n\n"
+            "This wallet does not hold any $YNTOYG tokens.\n\n"
+            "To participate in the Gentleman's System:\n"
+            "▸ Acquire $YNTOYG tokens\n"
+            "▸ Return and try again\n\n"
+            "Only holders may ascend."
+        )
+        return
+
+    # Register the wallet in both wallet_registry and users tables
+    await db.register_wallet(
+        user_id=db_user['id'],
+        telegram_id=user.id,
+        wallet_address=wallet_address,
+        token_balance=balance,
+        verified=bool(YNTOYG_MINT_ADDRESS)  # True if post-launch with verification
+    )
+
+    short_addr = f"{wallet_address[:6]}...{wallet_address[-4:]}"
+
     await update.message.reply_text(
-        f"✅ Wallet connected!\n\n"
-        f"Address: {wallet_address[:8]}...{wallet_address[-4:]}\n\n"
-        f"Next: Use /claim to get your daily video, then /submit to earn points!"
+        f"✅ Wallet Connected\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"Your Solana wallet has been linked:\n"
+        f"{short_addr}\n\n"
+        f"UNLOCKED:\n"
+        f"▸ Point collection system\n"
+        f"▸ Leaderboard ranking\n"
+        f"▸ Dashboard access\n"
+        f"▸ Future airdrop eligibility\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"The Covenant recognizes you, Gentleman.\n\n"
+        f"Next: /claim to get your daily video!"
     )
 
 
