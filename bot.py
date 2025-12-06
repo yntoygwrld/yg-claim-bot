@@ -472,19 +472,25 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"🎬 Here's your daily video, Gentleman!\n\n"
         f"📹 {video.get('title', 'YG Content')}\n\n"
-        f"━━━ TIPS FOR MAX VIEWS ━━━\n\n"
-        f"📌 POST AS ORGANIC CONTENT\n"
+        f"━━━ HOW TO POST FOR MAX VIEWS ━━━\n\n"
+        f"📌 KEEP IT ORGANIC (all platforms)\n"
         f"• No promo/ad language in caption\n"
-        f"• Keep it natural: \"check this out\" vibes\n"
+        f"• Natural vibes: \"check this out\"\n"
         f"• Put 3-5 hashtags IN the caption\n\n"
-        f"📱 INSTAGRAM: Post as Reel, then\n"
-        f"share to Stories 2-4 hrs later\n\n"
-        f"🎵 TIKTOK: Post evenings 7-9 PM\n"
-        f"for best algorithm boost\n\n"
-        f"🐦 TWITTER: Quote tweet your post\n"
-        f"for extra reach\n\n"
+        f"📱 INSTAGRAM (important!)\n"
+        f"• Post as a REEL ← this counts!\n"
+        f"• Reels reach 2x more people\n"
+        f"• THEN share to Stories 2-4 hrs later\n"
+        f"  (Stories = extra boost, not the post)\n\n"
+        f"🎵 TIKTOK\n"
+        f"• Just upload normally\n"
+        f"• Hook viewers in first 3 seconds\n"
+        f"• Best times: Tue-Thu, 2-5 PM\n\n"
+        f"🐦 TWITTER/X\n"
+        f"• Upload video directly (native)\n"
+        f"• Quote-tweet your post for reach\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Claim: +10 pts | Submit link: +15 pts (25 total)"
+        f"💰 Claim: +10 pts | Submit link: +15 pts"
     )
 
     # Prepare video - prioritize telegram_file_id
@@ -512,7 +518,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await update.message.reply_document(
                         document=f,
                         filename=generate_random_filename(),
-                        caption="Save this video and post it! Then /submit your link"
+                        caption="📲 Post as REEL on Instagram! Then /submit your link"
                     )
 
                 # Cleanup
@@ -526,7 +532,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 # Fallback: send original file
                 await update.message.reply_document(
                     document=file_id,
-                    caption="Save this video and post it! Then /submit your link"
+                    caption="📲 Post as REEL on Instagram! Then /submit your link"
                 )
                 if temp_path.exists():
                     temp_path.unlink()
@@ -537,7 +543,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Fallback to direct file_id
             await update.message.reply_document(
                 document=file_id,
-                caption="Save this video and post it! Then /submit your link"
+                caption="📲 Post as REEL on Instagram! Then /submit your link"
             )
 
     elif video_url:
@@ -550,7 +556,7 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await update.message.reply_document(
                         document=f,
                         filename=generate_random_filename(),
-                        caption="Save this video and post it! Then /submit your link"
+                        caption="📲 Post as REEL on Instagram! Then /submit your link"
                     )
                 uniquifier = get_uniquifier()
                 await uniquifier.cleanup(result_path)
@@ -558,13 +564,13 @@ async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 # Fallback to direct URL
                 await update.message.reply_document(
                     document=video_url,
-                    caption="Save this video and post it! Then /submit your link"
+                    caption="📲 Post as REEL on Instagram! Then /submit your link"
                 )
         except Exception as e:
             logger.error(f"Error with URL video: {e}")
             await update.message.reply_document(
                 document=video_url,
-                caption="Save this video and post it! Then /submit your link"
+                caption="📲 Post as REEL on Instagram! Then /submit your link"
             )
     else:
         await update.message.reply_text(
