@@ -39,29 +39,13 @@ def run_telegram_bot():
         run_telegram_bot()  # Retry
 
 
-def main():
-    """Main entry point - starts bot thread and API server"""
-    logger.info("=" * 50)
-    logger.info("YG CLAIM BOT + API SERVER")
-    logger.info("=" * 50)
-
-    # Start Telegram bot in background thread
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
-    logger.info("Telegram bot thread started")
-
-    # Give bot time to initialize
-    time.sleep(2)
-
-    # Start Flask API server in main thread
-    logger.info("Starting Flask API server...")
+def run_flask_server():
+    """Run Flask API server"""
     from api_server import app
-
     port = int(os.environ.get('PORT', 8000))
 
-    # Use production server settings
     if os.environ.get('KOYEB_SERVICE_NAME'):
-        # Running on Koyeb - use gunicorn-like settings
+        # Running on Koyeb - use waitress
         from waitress import serve
         logger.info(f"Starting production server on port {port}")
         serve(app, host='0.0.0.0', port=port, threads=4)
@@ -69,6 +53,33 @@ def main():
         # Local development
         logger.info(f"Starting development server on port {port}")
         app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+
+
+def main():
+    """Main entry point - starts API server FIRST, then bot"""
+    logger.info("=" * 50)
+    logger.info("YG CLAIM BOT + API SERVER")
+    logger.info("=" * 50)
+
+    # Import Flask app early to catch any import errors
+    logger.info("Importing Flask app...")
+    from api_server import app
+    logger.info("Flask app imported successfully")
+
+    port = int(os.environ.get('PORT', 8000))
+
+    # Start Flask API server FIRST in a thread (for health checks)
+    logger.info(f"Starting Flask API server on port {port}...")
+    flask_thread = threading.Thread(target=run_flask_server, daemon=True)
+    flask_thread.start()
+
+    # Wait for Flask to be ready (bind to port)
+    time.sleep(1)
+    logger.info("Flask server thread started")
+
+    # Now start Telegram bot in main thread (blocking)
+    logger.info("Starting Telegram bot...")
+    run_telegram_bot()
 
 
 if __name__ == '__main__':
