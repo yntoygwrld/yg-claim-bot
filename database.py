@@ -513,3 +513,118 @@ async def is_wallet_verified(telegram_id: int) -> bool:
         return False
 
     return result.data.get("wallet_verified", False)
+
+
+# ============ TELEGRAM CONNECTION OPERATIONS ============
+# For linking website accounts to Telegram accounts and awarding bonus points
+
+TELEGRAM_CONNECT_BONUS = 100  # Points awarded for connecting Telegram
+
+
+async def verify_telegram_connect_token(token: str) -> Optional[Dict]:
+    """Verify a Telegram connect token and return user info if valid.
+
+    Returns dict with user_id, or None if invalid/expired/used.
+    """
+    result = supabase.table("telegram_connect_tokens").select(
+        "user_id, expires_at, used_at"
+    ).eq("token", token).execute()
+
+    if not result.data:
+        return None
+
+    token_data = result.data[0]
+
+    # Check if already used
+    if token_data.get("used_at"):
+        return None
+
+    # Check if expired
+    expires_at = parse_timestamp(token_data["expires_at"])
+    if datetime.utcnow() > expires_at.replace(tzinfo=None):
+        return None
+
+    return {"user_id": token_data["user_id"]}
+
+
+async def is_telegram_already_registered(telegram_id: int) -> Optional[Dict]:
+    """Check if this Telegram ID is already registered to any account.
+
+    Returns registry record if exists, None otherwise.
+    Used to prevent same Telegram from being used on multiple accounts.
+    """
+    result = supabase.table("telegram_registry").select(
+        "telegram_id, user_id, connected_at"
+    ).eq("telegram_id", telegram_id).execute()
+
+    return result.data[0] if result.data else None
+
+
+async def get_user_by_id(user_id: str) -> Optional[Dict]:
+    """Get user by their UUID."""
+    result = supabase.table("users").select("*").eq("id", user_id).execute()
+    return result.data[0] if result.data else None
+
+
+async def complete_telegram_connection(
+    token: str,
+    user_id: str,
+    telegram_id: int,
+    telegram_username: str
+) -> Dict:
+    """Complete the Telegram connection process.
+
+    This function performs ALL of the following in sequence:
+    1. Mark the connect token as used
+    2. Insert into telegram_registry (prevents reuse of this Telegram)
+    3. Update users table with telegram_id, telegram_username, connected_at, bonus_claimed
+    4. Award bonus points
+
+    Returns dict with success status and message.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        # 1. Mark token as used
+        supabase.table("telegram_connect_tokens").update({
+            "used_at": datetime.utcnow().isoformat()
+        }).eq("token", token).execute()
+
+        # 2. Insert into telegram_registry
+        supabase.table("telegram_registry").insert({
+            "telegram_id": telegram_id,
+            "user_id": user_id,
+        }).execute()
+
+        # 3. Get current user score
+        user_result = supabase.table("users").select(
+            "gentleman_score"
+        ).eq("id", user_id).single().execute()
+        current_score = user_result.data.get("gentleman_score", 0) if user_result.data else 0
+
+        # 4. Update user with telegram info and award bonus
+        supabase.table("users").update({
+            "telegram_id": telegram_id,
+            "telegram_username": telegram_username,
+            "telegram_connected_at": datetime.utcnow().isoformat(),
+            "telegram_bonus_claimed": True,
+            "gentleman_score": current_score + TELEGRAM_CONNECT_BONUS,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("id", user_id).execute()
+
+        logger.info(f"Telegram connection completed: user_id={user_id}, telegram_id={telegram_id}, +{TELEGRAM_CONNECT_BONUS} pts")
+
+        return {
+            "success": True,
+            "points_awarded": TELEGRAM_CONNECT_BONUS,
+            "message": "Connection successful"
+        }
+
+    except Exception as e:
+        logger.error(f"Telegram connection failed: {e}")
+        return {
+            "success": False,
+            "points_awarded": 0,
+            "message": str(e)
+        }

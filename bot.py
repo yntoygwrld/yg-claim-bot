@@ -150,10 +150,125 @@ def admin_only(func):
 
 # ============ COMMAND HANDLERS ============
 
+async def handle_telegram_connect(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    token: str
+) -> None:
+    """Handle Telegram account connection from dashboard.
+
+    This is triggered when user clicks "Connect Telegram" on the website,
+    which generates a deep link like: t.me/yntoyg_claim_bot?start=connect_ct_xxxx
+
+    Flow:
+    1. Verify token is valid and not expired/used
+    2. Check this Telegram isn't already registered to another account
+    3. Check user is member of Covenant group
+    4. Complete connection (award 100 pts)
+    """
+    user = update.effective_user
+
+    # Extract actual token (remove "connect_" prefix)
+    connect_token = token[8:] if token.startswith("connect_") else token
+
+    # 1. Verify token
+    token_data = await db.verify_telegram_connect_token(connect_token)
+    if not token_data:
+        await update.message.reply_text(
+            "❌ <b>Invalid or Expired Link</b>\n\n"
+            "This connection link is no longer valid.\n\n"
+            "Please go back to your dashboard and click\n"
+            "<b>Connect Telegram</b> to get a new link.\n\n"
+            "🔗 yntoyg.com/covenant",
+            parse_mode="HTML"
+        )
+        return
+
+    user_id = token_data["user_id"]
+
+    # 2. Check if this Telegram is already registered
+    existing_registration = await db.is_telegram_already_registered(user.id)
+    if existing_registration:
+        await update.message.reply_text(
+            "❌ <b>Telegram Already Linked</b>\n\n"
+            "This Telegram account is already connected\n"
+            "to another dashboard account.\n\n"
+            "Each Telegram can only link to one account.",
+            parse_mode="HTML"
+        )
+        return
+
+    # 3. Check if user's account already has a telegram linked
+    website_user = await db.get_user_by_id(user_id)
+    if website_user and website_user.get("telegram_id"):
+        await update.message.reply_text(
+            "❌ <b>Account Already Connected</b>\n\n"
+            "Your dashboard account is already connected\n"
+            "to a Telegram account.\n\n"
+            "Each account can only connect once.",
+            parse_mode="HTML"
+        )
+        return
+
+    # 4. Check Covenant group membership
+    is_member = await check_covenant_membership(user.id, context)
+    if not is_member:
+        # Create join button
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Covenant Group", url=config.YNTOYG_PORTAL_LINK)]
+        ])
+
+        await update.message.reply_text(
+            "⚠️ <b>Join the Covenant First</b>\n\n"
+            "To connect your Telegram and claim your\n"
+            "<b>+100 bonus points</b>, you must first\n"
+            "join the Covenant Telegram group.\n\n"
+            "👉 Tap the button below to join\n"
+            "👉 Then click <b>Connect Telegram</b> again\n"
+            "    on your dashboard",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+        return
+
+    # 5. All checks passed - complete connection
+    telegram_username = user.username or ""
+    result = await db.complete_telegram_connection(
+        token=connect_token,
+        user_id=user_id,
+        telegram_id=user.id,
+        telegram_username=telegram_username
+    )
+
+    if result["success"]:
+        await update.message.reply_text(
+            "🎉 <b>SUCCESS! Accounts Connected!</b>\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>+{result['points_awarded']} BONUS POINTS CLAIMED!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"Your Telegram{' (@' + telegram_username + ')' if telegram_username else ''}\n"
+            "is now linked to your dashboard.\n\n"
+            "📊 <b>View your updated score:</b>\n"
+            "🔗 yntoyg.com/covenant\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "<i>Welcome to the Covenant, gentleman.</i> 🎩",
+            parse_mode="HTML"
+        )
+    else:
+        await update.message.reply_text(
+            "❌ <b>Connection Failed</b>\n\n"
+            f"Error: {result['message']}\n\n"
+            "Please try again from your dashboard.\n"
+            "🔗 yntoyg.com/covenant",
+            parse_mode="HTML"
+        )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command with optional magic link token.
 
     Flow handles all cases:
+    0. connect_XXX token → Telegram account linking flow
     1. Existing user → Welcome back
     2. New user with token + in group → Complete onboarding
     3. New user with token + NOT in group → Store pending, ask to join
@@ -164,6 +279,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     args = context.args
     token = args[0] if args and len(args) > 0 else None
+
+    # STEP 0: Handle Telegram connect tokens (from dashboard)
+    if token and token.startswith("connect_"):
+        await handle_telegram_connect(update, context, token)
+        return
 
     # STEP 1: Check if user already exists (returning user)
     existing_user = await db.get_user_by_telegram_id(user.id)
